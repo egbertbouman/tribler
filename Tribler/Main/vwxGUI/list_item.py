@@ -1062,6 +1062,15 @@ class ThumbnailListItem(ThumbnailListItemNoTorrent, TorrentListItem):
         pass
 
 
+class CreditMiningListItem(ListItem):
+
+    def AddComponents(self, leftSpacer, rightSpacer):
+        ListItem.AddComponents(self, 5, 5)
+
+    def GetIcons(self):
+        return []
+
+
 class ActivityListItem(ListItem):
 
     def __init__(self, *args, **kwargs):
@@ -1069,7 +1078,7 @@ class ActivityListItem(ListItem):
 
     def AddComponents(self, leftSpacer, rightSpacer):
         ListItem.AddComponents(self, leftSpacer, rightSpacer)
-        if self.data[0] in ['Results', 'Channels', 'Downloads', 'Videoplayer']:
+        if self.data[0] in ['Results', 'Channels', 'Downloads', 'Credit Mining', 'Videoplayer']:
             self.num_items = TagText(self, -1, label='0', fill_colour=GRADIENT_DGREY, edge_colour=SEPARATOR_GREY)
             self.hSizer.Add(self.num_items, 0, wx.CENTER | wx.RIGHT, 5)
             self.hSizer.Layout()

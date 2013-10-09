@@ -195,6 +195,7 @@ class LibtorrentDownloadImpl(DownloadConfigInterface):
         self.all_time_upload = 0.0
         self.all_time_download = 0.0
         self.finished_time = 0.0
+        self.added_time = 0.0
         self.done = False
         self.pause_after_next_hashcheck = False
         self.checkpoint_after_next_hashcheck = False
@@ -581,6 +582,7 @@ class LibtorrentDownloadImpl(DownloadConfigInterface):
         self.all_time_upload = status.all_time_upload
         self.all_time_download = status.all_time_download
         self.finished_time = status.finished_time
+        self.added_time = status.added_time
 
     def set_corrected_infoname(self):
         # H4xor this so the 'name' field is safe
@@ -718,6 +720,7 @@ class LibtorrentDownloadImpl(DownloadConfigInterface):
         seeding_stats['total_up'] = self.all_time_upload
         seeding_stats['total_down'] = self.all_time_download
         seeding_stats['time_seeding'] = self.finished_time
+        seeding_stats['time_started'] = self.added_time
 
         logmsgs = []
 

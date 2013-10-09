@@ -2008,6 +2008,130 @@ class LibraryList(SizeList):
         return header, message
 
 
+class CreditMiningList(SizeList):
+
+    def __init__(self, parent):
+        self.guiutility = GUIUtility.getInstance()
+        self.utility = self.guiutility.utility
+
+        self.statefilter = None
+        self.newfilter = False
+        self.prevStates = {}
+        self.oldDS = {}
+
+        self.initnumitems = False
+
+        columns = [{'name': 'Date', 'width': '20em', 'sortAsc': True, 'fmt': format_time},
+                   {'name': 'Hash', 'width':  wx.LIST_AUTOSIZE, 'fmt': lambda ih: ih.encode('hex')},
+                   {'name': 'Investment Yield', 'width': '30em', 'autoRefresh': False},
+                   {'name': 'Bytes up', 'width': '22em', 'fmt': self.guiutility.utility.size_format, 'autoRefresh': False},
+                   {'name': 'Bytes down', 'width': '24em', 'fmt': self.guiutility.utility.size_format, 'autoRefresh': False}]
+
+        columns = self.guiutility.SetColumnInfo(CreditMiningListItem, columns)
+        ColumnsManager.getInstance().setColumns(CreditMiningListItem, columns)
+
+        SizeList.__init__(self, None, LIST_GREY, [0, 0], False, parent=parent)
+
+    def GetManager(self):
+        if getattr(self, 'manager', None) == None:
+            self.manager = LocalSearchManager(self)
+        return self.manager
+
+    @warnWxThread
+    def CreateHeader(self, parent):
+        if self.guiutility.frame.top_bg:
+            header = wx.Panel(parent, size=(-1, 0))
+        else:
+            raise NotYetImplementedException('')
+
+        return header
+
+    @warnWxThread
+    def CreateFooter(self, parent):
+        footer = ListFooter(parent, radius=0)
+        footer.SetMinSize((-1, 0))
+        return footer
+
+    def OnExpand(self, item):
+        List.OnExpand(self, item)
+        return True
+
+    @warnWxThread
+    def RefreshItems(self, dslist, magnetlist):
+        didStateChange, _, newDS = SizeList.RefreshItems(self, dslist, magnetlist, rawdata=True)
+
+        newFilter = self.newfilter
+
+        if len(newDS) > 0:
+            ids = newDS.keys()
+            self.GetManager().refresh_if_exists(ids, force=True)  # new torrent?
+
+        if didStateChange:
+            if self.statefilter != None:
+                self.list.SetData()  # basically this means execute filter again
+
+        for item in self.list.items.itervalues():
+            ds = item.original_data.ds
+            if ds:
+                torrent_ds, _ = item.original_data.dslist
+
+                if torrent_ds and torrent_ds.get_seeding_statistics():
+                    seeding_stats = torrent_ds.get_seeding_statistics()
+                    bytes_up = seeding_stats['total_up']
+                    bytes_down = seeding_stats['total_down']
+                    time_started = seeding_stats['time_started']
+
+                    item.RefreshColumn(0, time_started)
+                    item.RefreshColumn(3, bytes_up)
+                    item.RefreshColumn(4, bytes_down)
+
+                    item.SetDeselectedColour(LIST_DESELECTED)
+
+        if newFilter:
+            self.newfilter = False
+
+        self.oldDS = dict([(infohash, item.original_data.ds) for infohash, item in self.list.items.iteritems()])
+
+    @warnWxThread
+    def SetData(self, data):
+        SizeList.SetData(self, data)
+
+        if len(data) > 0:
+            data = [(file.infohash, ['', file.infohash, '', 0, 0], file, CreditMiningListItem) for file in data]
+        else:
+            message = "No credit mining data available."
+            self.list.ShowMessage(message)
+            self.SetNrResults(0)
+
+        self.list.SetData(data)
+
+    @warnWxThread
+    def RefreshData(self, key, data):
+        List.RefreshData(self, key, data)
+
+        data = (data.infohash, ['', data.infohash, '', 0, 0], data)
+        self.list.RefreshData(key, data)
+
+    def SetNrResults(self, nr):
+        highlight = nr > self.nr_results and self.initnumitems
+        SizeList.SetNrResults(self, nr)
+
+        actitem = self.guiutility.frame.actlist.GetItem(5)
+        num_items = getattr(actitem, 'num_items', None)
+        if num_items:
+            num_items.SetValue(str(nr))
+            actitem.hSizer.Layout()
+            if highlight:
+                actitem.Highlight()
+            self.initnumitems = True
+
+    def MatchFilter(self, item):
+        return True
+
+    def MatchFFilter(self, item):
+        return True
+
+
 class ChannelList(List):
 
     def __init__(self, parent):
@@ -2206,7 +2330,7 @@ class ActivitiesList(List):
 
     def __SetData(self):
         self.list.SetData([(1, ['Home'], None, ActivityListItem), (2, ['Results'], None, ActivityListItem), (3, ['Channels'], None, ActivityListItem),
-                           (4, ['Downloads'], None, ActivityListItem), (5, ['Videoplayer'], None, ActivityListItem)])
+                           (4, ['Downloads'], None, ActivityListItem), (5, ['Credit Mining'], None, ActivityListItem), (6, ['Videoplayer'], None, ActivityListItem)])
         self.ResizeListItems()
         self.DisableItem(2)
         if not self.guiutility.frame.videoparentpanel:
@@ -2220,7 +2344,7 @@ class ActivitiesList(List):
         channels_item.AddEvents(self.expandedPanel_channels)
         self.expandedPanel_channels.Hide()
 
-        videoplayer_item = self.list.GetItem(5)
+        videoplayer_item = self.list.GetItem(6)
         self.expandedPanel_videoplayer = VideoplayerExpandedPanel(videoplayer_item)
         videoplayer_item.AddEvents(self.expandedPanel_videoplayer)
         self.expandedPanel_videoplayer.Hide()
@@ -2300,6 +2424,8 @@ class ActivitiesList(List):
             if self.guiutility.guiPage not in ['videoplayer']:
                 self.guiutility.ShowPage('videoplayer')
             return self.expandedPanel_videoplayer
+        elif item.data[0] == 'Credit Mining':
+            self.guiutility.ShowPage('creditmining')
         return True
 
     def OnCollapse(self, item, panel, from_expand):
@@ -2361,8 +2487,10 @@ class ActivitiesList(List):
             itemKey = 3
         elif tab == 'my_files':
             itemKey = 4
-        elif tab == 'videoplayer':
+        elif tab == 'creditmining':
             itemKey = 5
+        elif tab == 'videoplayer':
+            itemKey = 6
         if itemKey:
             wx.CallAfter(self.Select, itemKey, True)
         return
@@ -2383,7 +2511,7 @@ class ActivitiesList(List):
         if curPage < 0:
             curPage = len(pages) - 1
 
-        pageNames = ['home', 'search_results', 'channels', 'my_files', 'videoplayer']
+        pageNames = ['home', 'search_results', 'channels', 'my_files', 'creditmining', 'videoplayer']
         for i in self.settings.keys():
             pageNames.pop(i - 1)
         self.guiutility.ShowPage(pageNames[curPage])

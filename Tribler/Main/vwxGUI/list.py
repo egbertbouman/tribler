@@ -2045,13 +2045,21 @@ class CreditMiningList(SizeList):
         if self.guiutility.frame.top_bg:
             header = FancyPanel(parent, border=wx.BOTTOM)
             text = wx.StaticText(header, -1, 'Investment overview')
+            self.b_up = wx.StaticText(header, -1, 'Total bytes up: -')
+            self.b_down = wx.StaticText(header, -1, 'Total bytes down: -')
+            self.s_up = wx.StaticText(header, -1, 'Total speed up: -')
+            self.s_down = wx.StaticText(header, -1, 'Total speed down: -')
             _set_font(text, size_increment=2, fontweight=wx.FONTWEIGHT_BOLD)
             sizer = wx.BoxSizer(wx.VERTICAL)
             sizer.AddStretchSpacer()
-            sizer.Add(text, 0, wx.LEFT, 5)
+            sizer.Add(text, 0, wx.LEFT | wx.BOTTOM, 5)
+            sizer.Add(self.b_up, 0, wx.LEFT, 5)
+            sizer.Add(self.b_down, 0, wx.LEFT, 5)
+            sizer.Add(self.s_up, 0, wx.LEFT, 5)
+            sizer.Add(self.s_down, 0, wx.LEFT, 5)
             sizer.AddStretchSpacer()
             header.SetSizer(sizer)
-            header.SetMinSize((-1, 50))
+            header.SetMinSize((-1, 100))
         else:
             raise NotYetImplementedException('')
 
@@ -2081,6 +2089,8 @@ class CreditMiningList(SizeList):
             if self.statefilter != None:
                 self.list.SetData()  # basically this means execute filter again
 
+        b_up = b_down = s_up = s_down = 0
+
         for item in self.list.items.itervalues():
             ds = item.original_data.ds
             if ds:
@@ -2093,6 +2103,9 @@ class CreditMiningList(SizeList):
                         bytes_down = seeding_stats['total_down']
                         time_started = seeding_stats['time_started']
 
+                        b_up += bytes_up
+                        b_down += bytes_down
+
                         ratio = bytes_down / bytes_up if bytes_up else sys.maxint
                         i_yield = 'Struck gold' if ratio > 1.0 else ('Poor' if ratio < 1.0 else 'Moderate')
 
@@ -2103,7 +2116,16 @@ class CreditMiningList(SizeList):
 
                     speed_up = torrent_ds.get_current_speed('up') * 1024 if torrent_ds else 0
                     speed_down = torrent_ds.get_current_speed('down') * 1024 if torrent_ds else 0
+
+                    s_up += speed_up
+                    s_down += speed_down
+
                     item.RefreshColumn(0, self.utility.speed_format_new(speed_up) + ' / ' + self.utility.speed_format_new(speed_down))
+
+        self.b_up.SetLabel('Total bytes up:' + self.utility.size_format(b_up))
+        self.b_down.SetLabel('Total bytes down:' + self.utility.size_format(b_down))
+        self.s_up.SetLabel('Total speed up:' + self.utility.speed_format_new(s_up))
+        self.s_down.SetLabel('Total speed down:' + self.utility.speed_format_new(s_down))
 
         if newFilter:
             self.newfilter = False

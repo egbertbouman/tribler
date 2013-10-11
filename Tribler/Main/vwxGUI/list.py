@@ -2092,7 +2092,11 @@ class CreditMiningList(SizeList):
                     bytes_down = seeding_stats['total_down']
                     time_started = seeding_stats['time_started']
 
+                    ratio = bytes_down / bytes_up if bytes_up else sys.maxint
+                    i_yield = 'Struck gold' if ratio > 1.0 else ('Poor investment' if ratio < 1.0 else 'Moderate')
+
                     item.RefreshColumn(0, time_started)
+                    item.RefreshColumn(2, i_yield)
                     item.RefreshColumn(3, bytes_up)
                     item.RefreshColumn(4, bytes_down)
 

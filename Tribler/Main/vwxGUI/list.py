@@ -2032,6 +2032,9 @@ class CreditMiningList(SizeList):
 
         SizeList.__init__(self, None, LIST_GREY, [0, 0], False, parent=parent)
 
+        self.header.SetBackgroundColour(wx.WHITE)
+        self.header.SetBorderColour(SEPARATOR_GREY)
+
     def GetManager(self):
         if getattr(self, 'manager', None) == None:
             self.manager = LocalSearchManager(self)
@@ -2040,7 +2043,15 @@ class CreditMiningList(SizeList):
     @warnWxThread
     def CreateHeader(self, parent):
         if self.guiutility.frame.top_bg:
-            header = wx.Panel(parent, size=(-1, 0))
+            header = FancyPanel(parent, border=wx.BOTTOM)
+            text = wx.StaticText(header, -1, 'Investment overview')
+            _set_font(text, size_increment=2, fontweight=wx.FONTWEIGHT_BOLD)
+            sizer = wx.BoxSizer(wx.VERTICAL)
+            sizer.AddStretchSpacer()
+            sizer.Add(text, 0, wx.LEFT, 5)
+            sizer.AddStretchSpacer()
+            header.SetSizer(sizer)
+            header.SetMinSize((-1, 50))
         else:
             raise NotYetImplementedException('')
 

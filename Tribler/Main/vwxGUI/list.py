@@ -2122,10 +2122,10 @@ class CreditMiningList(SizeList):
 
                     item.RefreshColumn(0, self.utility.speed_format_new(speed_up) + ' / ' + self.utility.speed_format_new(speed_down))
 
-        self.b_up.SetLabel('Total bytes up:' + self.utility.size_format(b_up))
-        self.b_down.SetLabel('Total bytes down:' + self.utility.size_format(b_down))
-        self.s_up.SetLabel('Total speed up:' + self.utility.speed_format_new(s_up))
-        self.s_down.SetLabel('Total speed down:' + self.utility.speed_format_new(s_down))
+        self.b_up.SetLabel('Total bytes up: ' + self.utility.size_format(b_up))
+        self.b_down.SetLabel('Total bytes down: ' + self.utility.size_format(b_down))
+        self.s_up.SetLabel('Total speed up: ' + self.utility.speed_format_new(s_up))
+        self.s_down.SetLabel('Total speed down: ' + self.utility.speed_format_new(s_down))
 
         if newFilter:
             self.newfilter = False

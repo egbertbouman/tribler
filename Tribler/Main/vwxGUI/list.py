@@ -2021,11 +2021,11 @@ class CreditMiningList(SizeList):
 
         self.initnumitems = False
 
-        columns = [{'name': 'Date', 'width': '20em', 'sortAsc': True, 'fmt': format_time},
-                   {'name': 'Hash', 'width':  wx.LIST_AUTOSIZE, 'fmt': lambda ih: ih.encode('hex')},
-                   {'name': 'Investment Yield', 'width': '30em', 'autoRefresh': False},
-                   {'name': 'Bytes up', 'width': '22em', 'fmt': self.guiutility.utility.size_format, 'autoRefresh': False},
-                   {'name': 'Bytes down', 'width': '24em', 'fmt': self.guiutility.utility.size_format, 'autoRefresh': False}]
+        columns = [{'name': 'Speed up/down', 'width': '35em', 'autoRefresh': False},
+                   {'name': 'Bytes up/down', 'width': '35em', 'autoRefresh': False},
+                   {'name': 'Date', 'width': '20em', 'sortAsc': True, 'fmt': format_time},
+                   {'name': 'Hash', 'width':  wx.LIST_AUTOSIZE, 'fmt': lambda ih: ih.encode('hex')[:12]},
+                   {'name': 'Investment Yield', 'width': '30em', 'autoRefresh': False}]
 
         columns = self.guiutility.SetColumnInfo(CreditMiningListItem, columns)
         ColumnsManager.getInstance().setColumns(CreditMiningListItem, columns)
@@ -2086,21 +2086,24 @@ class CreditMiningList(SizeList):
             if ds:
                 torrent_ds, _ = item.original_data.dslist
 
-                if torrent_ds and torrent_ds.get_seeding_statistics():
-                    seeding_stats = torrent_ds.get_seeding_statistics()
-                    bytes_up = seeding_stats['total_up']
-                    bytes_down = seeding_stats['total_down']
-                    time_started = seeding_stats['time_started']
+                if torrent_ds:
+                    if torrent_ds.get_seeding_statistics():
+                        seeding_stats = torrent_ds.get_seeding_statistics()
+                        bytes_up = seeding_stats['total_up']
+                        bytes_down = seeding_stats['total_down']
+                        time_started = seeding_stats['time_started']
 
-                    ratio = bytes_down / bytes_up if bytes_up else sys.maxint
-                    i_yield = 'Struck gold' if ratio > 1.0 else ('Poor investment' if ratio < 1.0 else 'Moderate')
+                        ratio = bytes_down / bytes_up if bytes_up else sys.maxint
+                        i_yield = 'Struck gold' if ratio > 1.0 else ('Poor' if ratio < 1.0 else 'Moderate')
 
-                    item.RefreshColumn(0, time_started)
-                    item.RefreshColumn(2, i_yield)
-                    item.RefreshColumn(3, bytes_up)
-                    item.RefreshColumn(4, bytes_down)
+                        item.RefreshColumn(1, self.utility.size_format(bytes_up) + ' / ' + self.utility.size_format(bytes_down))
+                        item.RefreshColumn(2, time_started)
+                        item.RefreshColumn(4, i_yield)
+                        item.SetDeselectedColour(LIST_DESELECTED)
 
-                    item.SetDeselectedColour(LIST_DESELECTED)
+                    speed_up = torrent_ds.get_current_speed('up') * 1024 if torrent_ds else 0
+                    speed_down = torrent_ds.get_current_speed('down') * 1024 if torrent_ds else 0
+                    item.RefreshColumn(0, self.utility.speed_format_new(speed_up) + ' / ' + self.utility.speed_format_new(speed_down))
 
         if newFilter:
             self.newfilter = False
@@ -2112,7 +2115,7 @@ class CreditMiningList(SizeList):
         SizeList.SetData(self, data)
 
         if len(data) > 0:
-            data = [(file.infohash, ['', file.infohash, '', 0, 0], file, CreditMiningListItem) for file in data]
+            data = [(file.infohash, ['- / -', '- / -', '', file.infohash, ''], file, CreditMiningListItem) for file in data]
         else:
             message = "No credit mining data available."
             self.list.ShowMessage(message)
@@ -2124,7 +2127,7 @@ class CreditMiningList(SizeList):
     def RefreshData(self, key, data):
         List.RefreshData(self, key, data)
 
-        data = (data.infohash, ['', data.infohash, '', 0, 0], data)
+        data = (data.infohash, ['-', '-', '', data.infohash, ''], data)
         self.list.RefreshData(key, data)
 
     def SetNrResults(self, nr):

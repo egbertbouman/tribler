@@ -1063,6 +1063,14 @@ class LibtorrentDownloadImpl(DownloadConfigInterface):
             return False
         return True
 
+    def get_share_mode(self):
+        if self.handle:
+            return self.handle.status().share_mode
+
+    def set_share_mode(self, share_mode):
+        if self.handle:
+            self.handle.set_share_mode(share_mode)
+
 
 class LibtorrentStatisticsResponse:
 

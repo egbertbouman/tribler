@@ -189,5 +189,5 @@ class SeederRatioPolicy(BoostingPolicy):
 
     def apply(self, torrents_eligible, torrents_active):
         key = lambda v: v['num_seeders'] / float(v['num_seeders'] + v['num_leechers'])
-        key_check = lambda v: v['num_seeders'] != None and v['num_leechers'] != None and v['num_seeders'] + v['num_leechers'] != 0
+        key_check = lambda v: v['num_seeders'] not in [None, -1] and v['num_leechers'] not in [None, -1] and v['num_seeders'] + v['num_leechers'] != 0
         return BoostingPolicy.apply(self, torrents_eligible, torrents_active, key, key_check)

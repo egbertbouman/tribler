@@ -3,6 +3,7 @@
 import os
 import sys
 import time
+import random
 
 from Tribler.Core.Libtorrent.LibtorrentMgr import LibtorrentMgr
 from Tribler.community.allchannel.community import AllChannelCommunity
@@ -175,6 +176,14 @@ class BoostingPolicy:
         infohash_remove = sorted_list[-1][1] if sorted_list else None
 
         return (infohash_add, infohash_remove)
+
+
+class RandomPolicy(BoostingPolicy):
+
+    def apply(self, torrents_eligible, torrents_active):
+        key = lambda v: random.random()
+        key_check = lambda v: True
+        return BoostingPolicy.apply(self, torrents_eligible, torrents_active, key, key_check)
 
 
 class CreationDatePolicy(BoostingPolicy):

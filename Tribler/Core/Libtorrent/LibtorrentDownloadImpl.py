@@ -1020,6 +1020,9 @@ class LibtorrentDownloadImpl(DownloadConfigInterface):
         else:
             pstate.set('state', 'metainfo', self.tdef.get_metainfo())
 
+        if self.get_share_mode():
+            pstate.set('state', 'share_mode', True)
+
         ds = self.network_get_state(None, False, sessioncalling=True)
         dlstate = {'status': ds.get_status(), 'progress': ds.get_progress(), 'swarmcache': None}
         pstate.set('state', 'dlstate', dlstate)

@@ -2,7 +2,6 @@
 
 import os
 import sys
-import time
 import random
 
 from Tribler.Core.Libtorrent.LibtorrentMgr import LibtorrentMgr
@@ -14,18 +13,12 @@ from Tribler.Core.TorrentDef import TorrentDef, TorrentDefNoMetainfo
 from Tribler.Core.DownloadConfig import DownloadStartupConfig
 from Tribler.Main.globals import DefaultDownloadStartupConfig
 
-MAX_TORRENTS_ELIGIBLE = 100
-MAX_TORRENTS_ACTIVE = 5
-
-ET_UPDATE_INTERVAL = 20
-AT_UPDATE_INTERVAL = 20
-
 DEBUG = False
 
 
 class ChannelBooster:
 
-    def __init__(self, session, dispersy_cid):
+    def __init__(self, session, dispersy_cid, policy=None, db_interval=20, sw_interval=20, max_eligible=100, max_active=5):
         self.session = session
         self.votecast_db = self.session.lm.votecast_db
         self.channelcast_db = self.session.lm.channelcast_db
@@ -33,19 +26,26 @@ class ChannelBooster:
         self.lt_mgr = LibtorrentMgr.getInstance()
         self.torrent_checking = TorrentChecking.getInstance()
 
+        self.community = None
+
         self.torrents_eligible = {}
         self.torrents_active = {}
 
-        self.community = None
+        self.max_torrents_eligible = max_eligible
+        self.max_torrents_active = max_active
 
-        self.SetPolicy(SeederRatioPolicy(self.session))
+        self.database_interval = db_interval
+        self.swarm_interval = sw_interval
+
+        # SeederRatioPolicy is the default policy
+        self.SetPolicy((policy or SeederRatioPolicy)(self.session))
 
         self.session.add_observer(self.OnTorrentUpdate, NTFY_TORRENTS, [NTFY_UPDATE])
         self.session.add_observer(self.OnTorrentInsert, NTFY_TORRENTS, [NTFY_INSERT])
 
         self.session.lm.rawserver.add_task(lambda cid=dispersy_cid: self.SetChannel(cid), 0)
 
-        self.session.lm.rawserver.add_task(self.UpdateActiveTorrents, AT_UPDATE_INTERVAL)
+        self.session.lm.rawserver.add_task(self.UpdateActiveTorrents, self.swarm_interval)
 
     def SetChannel(self, dispersy_cid):
         # TODO: when SetChannel has been called before we should kill old tasks on rawserver.
@@ -99,7 +99,7 @@ class ChannelBooster:
         self.policy = policy
 
     def OnTorrentUpdate(self, subject, changeType, infohash):
-        if infohash in self.torrents_eligible and len(self.torrents_eligible) == MAX_TORRENTS_ELIGIBLE:
+        if infohash in self.torrents_eligible and len(self.torrents_eligible) == self.max_torrents_eligible:
             self.UpdateEligibleTorrents()
 
     def OnTorrentInsert(self, subject, changeType, infohash):
@@ -127,21 +127,21 @@ class ChannelBooster:
                 print >> sys.stderr, 'ChannelBooster: downloading torrent', infohash_add.encode('hex')
 
             # Delete a torrent
-            if infohash_remove and len(self.torrents_active) > MAX_TORRENTS_ACTIVE:
+            if infohash_remove and len(self.torrents_active) > self.max_torrents_active:
                 download = self.torrents_active[infohash_remove]
                 self.session.remove_download(download)
                 self.torrents_active.pop(infohash_remove)
                 print >> sys.stderr, 'ChannelBooster: removing torrent', infohash_remove.encode('hex')
 
-        self.session.lm.rawserver.add_task(self.UpdateActiveTorrents, AT_UPDATE_INTERVAL)
+        self.session.lm.rawserver.add_task(self.UpdateActiveTorrents, self.swarm_interval)
 
     def UpdateEligibleTorrents(self):
-        if len(self.torrents_eligible) < MAX_TORRENTS_ELIGIBLE:
+        if len(self.torrents_eligible) < self.max_torrents_eligible:
 
             infohashes_old = set(self.torrents_eligible.keys())
 
             torrent_keys = ['infohash', 'Torrent.name', 'torrent_file_name', 'creation_date', 'length', 'num_files', 'num_seeders', 'num_leechers']
-            torrent_values = self.channelcast_db.getTorrentsFromChannelId(self.channel_id, True, torrent_keys, MAX_TORRENTS_ELIGIBLE)
+            torrent_values = self.channelcast_db.getTorrentsFromChannelId(self.channel_id, True, torrent_keys, self.max_torrents_eligible)
             self.torrents_eligible = dict((torrent[0], dict(zip(torrent_keys[1:], torrent[1:]))) for torrent in torrent_values)
 
             infohashes_new = set(self.torrents_eligible.keys())
@@ -150,7 +150,7 @@ class ChannelBooster:
                 self.torrent_checking.addToQueue(infohash)
 
             print >> sys.stderr, 'ChannelBooster: got', len(self.torrents_eligible), 'eligible torrents'
-            self.session.lm.rawserver.add_task(self.UpdateEligibleTorrents, ET_UPDATE_INTERVAL)
+            self.session.lm.rawserver.add_task(self.UpdateEligibleTorrents, self.database_interval)
 
 
 class BoostingPolicy:
@@ -198,5 +198,5 @@ class SeederRatioPolicy(BoostingPolicy):
 
     def apply(self, torrents_eligible, torrents_active):
         key = lambda v: v['num_seeders'] / float(v['num_seeders'] + v['num_leechers'])
-        key_check = lambda v: v['num_seeders'] not in [None, -1] and v['num_leechers'] not in [None, -1] and v['num_seeders'] + v['num_leechers'] != 0
+        key_check = lambda v: isinstance(v['num_seeders'], int) and isinstance(v['num_leechers'], int) and v['num_seeders'] + v['num_leechers'] > 0
         return BoostingPolicy.apply(self, torrents_eligible, torrents_active, key, key_check)

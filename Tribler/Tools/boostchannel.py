@@ -4,28 +4,77 @@ import sys
 import time
 import shutil
 import random
+import getopt
 import tempfile
 from traceback import print_exc
 
 from Tribler.Core.Session import Session
 from Tribler.Core.SessionConfig import SessionStartupConfig
-from Tribler.Policies.ChannelBooster import ChannelBooster
+from Tribler.Policies.ChannelBooster import ChannelBooster, RandomPolicy, CreationDatePolicy, SeederRatioPolicy
 from Tribler.community.channel.community import ChannelCommunity
 from Tribler.community.channel.preview import PreviewChannelCommunity
 from Tribler.community.allchannel.community import AllChannelCommunity
 
 
-def main():
-    args = sys.argv
+def usage():
+    print "Usage: python boostchannel.py [options] dispersy_cid"
+    print "Options:"
+    print "   --db_interval <interval>\tnumber of seconds between database refreshes"
+    print "   --sw_interval <interval>\tnumber of seconds between swarm selection"
+    print "   --max_eligible <max>\t\tmaximum number of swarms that should be"
+    print "   \t\t\t\ttaken into consideration"
+    print "   --max_active <max>\t\tmaximum number of swarms that should be"
+    print "   \t\t\t\tactive simultaneously"
+    print "   --policy <policy>\t\tpolicy for swarm selection"
+    print "   \t\t\t\tpossible values: RandomPolicy"
+    print "   \t\t\t\t                 CreationDatePolicy"
+    print "   \t\t\t\t                 SeederRatioPolicy (default)"
+    print "   --help\t\t\tprint this help screen"
+    print
+    print "Example:"
+    print "   python boostchannel.py --max_active=5 3c8378fc3493b5772b1e6a25672d3889367cb7c3"
 
-    if not args:
-        print "Usage: python boostchannel.py dispersy_cid"
-        sys.exit()
-    elif len(args) != 2 or not len(args[1]) == 40:
-        print "Invalid arguments"
+def main():
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "hd:s:e:a:p:", ["help", "db_interval=", "sw_interval=", "max_eligible=", "max_active=", "policy="])
+    except getopt.GetoptError as err:
+        print str(err)
+        usage()
+        sys.exit(2)
+
+    kwargs = {}
+    for o, a in opts:
+        if o in ("-h", "--help"):
+            usage()
+            sys.exit(0)
+        elif o in ("-d", "--db_interval"):
+            kwargs['db_interval'] = int(a)
+        elif o in ("-s", "--sw_interval"):
+            kwargs['sw_interval'] = int(a)
+        elif o in ("-e", "--max_eligible"):
+            kwargs['max_eligible'] = int(a)
+        elif o in ("-a", "--max_active"):
+            kwargs['max_active'] = int(a)
+        elif o in ("-p", "--policy"):
+            if a == 'RandomPolicy':
+                kwargs['policy'] = RandomPolicy
+            elif a == 'CreationDatePolicy':
+                kwargs['policy'] = CreationDatePolicy
+            elif a == 'SeederRatioPolicy':
+                kwargs['policy'] = SeederRatioPolicy
+            else:
+                assert False, "Unknown policy"
+        else:
+            assert False, "Unhandled option"
+
+    if len(args) != 1:
+        print "Invalid number of arguments"
+        sys.exit(2)
+    elif len(args[0]) != 40:
+        print "Incorrect dispersy_cid"
         sys.exit(2)
     else:
-        dispersy_cid = args[1].decode('hex')
+        dispersy_cid = args[0].decode('hex')
 
     print "Press Ctrl-C to stop boosting this channel"
 
@@ -59,7 +108,7 @@ def main():
     dispersy = s.get_dispersy_instance()
     dispersy.callback.call(load_communities)
 
-    cb = ChannelBooster(s, dispersy_cid)
+    cb = ChannelBooster(s, dispersy_cid, **kwargs)
 
     try:
         while True:

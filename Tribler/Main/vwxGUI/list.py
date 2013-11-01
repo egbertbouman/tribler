@@ -282,6 +282,69 @@ class LocalSearchManager(BaseManager):
         self.refresh()
 
 
+class CreditMiningSearchManager(BaseManager):
+
+    def __init__(self, list):
+        BaseManager.__init__(self, list)
+        self.channel_booster = self.guiutility.channel_booster
+        self.library_manager = self.guiutility.library_manager
+
+    def refresh(self):
+        startWorker(self._on_data, self.getHitsInCategory, uId=u"CreditMiningSearchManager_refresh", retryOnBusy=True, priority=GUI_PRI_DISPERSY)
+
+    def getTorrentFromInfohash(self, infohash):
+        torrent = self.channel_booster.torrents_eligible.get(infohash, None)
+        if torrent:
+            t = LibraryTorrent('', infohash, '', '', torrent['Torrent.name'], torrent['torrent_file_name'], torrent['length'], '', '', torrent['num_seeders'], torrent['num_leechers'], None)
+            t.torrent_db = self.library_manager.torrent_db
+            t.channelcast_db = self.library_manager.channelcast_db
+            t.channel
+            self.library_manager.addDownloadState(t)
+            return t
+
+    def getHitsInCategory(self):
+        hits = [self.getTorrentFromInfohash(infohash) for infohash in self.channel_booster.torrents_eligible]
+        return [len(hits), hits]
+
+    def refresh_partial(self, ids):
+        for infohash in ids:
+            startWorker(self.list.RefreshDelayedData, self.getTorrentFromInfohash, cargs=(infohash,), wargs=(infohash,), retryOnBusy=True, priority=GUI_PRI_DISPERSY)
+
+    def refresh_if_exists(self, infohashes, force=False):
+        if any([self.channel_booster.torrents_eligible.has_key(infohash) for infohash in infohashes]):
+            print >> sys.stderr, long(time()), "Scheduling a refresh, missing some infohashes in the Credit Mining overview"
+            self.refresh()
+        else:
+            print >> sys.stderr, long(time()), "Not scheduling a refresh"
+
+    def refresh_or_expand(self, infohash):
+        if not self.list.InList(infohash):
+            def select(delayedResult):
+                delayedResult.get()
+                self.refresh_or_expand(infohash)
+
+            startWorker(select, self.refresh_partial, wargs=([infohash],), priority=GUI_PRI_DISPERSY)
+        else:
+            self.list.Select(infohash)
+
+    @forceWxThread
+    def _on_data(self, delayedResult):
+        total_items, data = delayedResult.get()
+        self.list.SetData(data)
+        self.list.Layout()
+
+    def torrentUpdated(self, infohash):
+        if self.list.InList(infohash):
+            self.do_or_schedule_partial([infohash])
+
+    def torrentsUpdated(self, infohashes):
+        infohashes = [infohash for infohash in infohashes if self.list.InList(infohash)]
+        self.do_or_schedule_partial(infohashes)
+
+    def downloadStarted(self, infohash):
+        self.refresh()
+
+
 class ChannelSearchManager(BaseManager):
 
     def __init__(self, list):
@@ -2021,9 +2084,9 @@ class CreditMiningList(SizeList):
 
         self.initnumitems = False
 
-        columns = [{'name': 'Speed up/down', 'width': '35em', 'autoRefresh': False},
-                   {'name': 'Bytes up/down', 'width': '35em', 'autoRefresh': False},
-                   {'name': 'Date', 'width': '20em', 'sortAsc': True, 'fmt': format_time},
+        columns = [{'name': 'Speed up/down', 'width': '33em', 'autoRefresh': False},
+                   {'name': 'Bytes up/down', 'width': '33em', 'autoRefresh': False},
+                   {'name': 'Seeders/leechers', 'width': '28em'},
                    {'name': 'Hash', 'width':  wx.LIST_AUTOSIZE, 'fmt': lambda ih: ih.encode('hex')[:12]},
                    {'name': 'Investment Yield', 'width': '30em', 'autoRefresh': False}]
 
@@ -2037,7 +2100,7 @@ class CreditMiningList(SizeList):
 
     def GetManager(self):
         if getattr(self, 'manager', None) == None:
-            self.manager = LocalSearchManager(self)
+            self.manager = CreditMiningSearchManager(self)
         return self.manager
 
     @warnWxThread
@@ -2093,34 +2156,46 @@ class CreditMiningList(SizeList):
 
         for item in self.list.items.itervalues():
             ds = item.original_data.ds
-            if ds:
-                torrent_ds, _ = item.original_data.dslist
+            torrent_ds, _ = item.original_data.dslist if ds else (None, None)
+            if torrent_ds:
 
-                if torrent_ds:
-                    if torrent_ds.get_seeding_statistics():
-                        seeding_stats = torrent_ds.get_seeding_statistics()
-                        bytes_up = seeding_stats['total_up']
-                        bytes_down = seeding_stats['total_down']
-                        time_started = seeding_stats['time_started']
+                if not torrent_ds.get_download().get_share_mode():
+                    continue
 
-                        b_up += bytes_up
-                        b_down += bytes_down
+                if torrent_ds.get_seeding_statistics():
+                    seeding_stats = torrent_ds.get_seeding_statistics()
+                    bytes_up = seeding_stats['total_up']
+                    bytes_down = seeding_stats['total_down']
 
-                        ratio = bytes_down / bytes_up if bytes_up else sys.maxint
-                        i_yield = 'Struck gold' if ratio > 1.0 else ('Poor' if ratio < 1.0 else 'Moderate')
+                    b_up += bytes_up
+                    b_down += bytes_down
 
-                        item.RefreshColumn(1, self.utility.size_format(bytes_up) + ' / ' + self.utility.size_format(bytes_down))
-                        item.RefreshColumn(2, time_started)
-                        item.RefreshColumn(4, i_yield)
-                        item.SetDeselectedColour(LIST_DESELECTED)
+                    ratio = bytes_down / bytes_up if bytes_up else sys.maxint
+                    i_yield = 'Struck gold' if ratio > 1.0 else ('Poor' if ratio < 1.0 else 'Moderate')
 
-                    speed_up = torrent_ds.get_current_speed('up') * 1024 if torrent_ds else 0
-                    speed_down = torrent_ds.get_current_speed('down') * 1024 if torrent_ds else 0
+                    item.RefreshColumn(1, self.utility.size_format(bytes_up) + ' / ' + self.utility.size_format(bytes_down))
+                    item.RefreshColumn(4, i_yield)
 
-                    s_up += speed_up
-                    s_down += speed_down
+                item.SetSelectedColour(wx.Colour(255, 175, 175))
+                item.SetDeselectedColour(wx.Colour(255, 200, 200))
+                item.SetExpandedColour(wx.Colour(255, 150, 150))
+                item.SetExpandedAndSelectedColour(wx.Colour(255, 125, 125))
 
-                    item.RefreshColumn(0, self.utility.speed_format_new(speed_up) + ' / ' + self.utility.speed_format_new(speed_down))
+                speed_up = torrent_ds.get_current_speed('up') * 1024 if torrent_ds else 0
+                speed_down = torrent_ds.get_current_speed('down') * 1024 if torrent_ds else 0
+
+                s_up += speed_up
+                s_down += speed_down
+
+                item.RefreshColumn(0, self.utility.speed_format_new(speed_up) + ' / ' + self.utility.speed_format_new(speed_down))
+
+            else:
+                item.SetSelectedColour(LIST_SELECTED)
+                item.SetDeselectedColour(LIST_DESELECTED)
+                item.SetExpandedColour(LIST_EXPANDED)
+                item.SetExpandedAndSelectedColour(LIST_DARKBLUE)
+
+                item.RefreshColumn(0, '- / -')
 
         self.b_up.SetLabel('Total bytes up: ' + self.utility.size_format(b_up))
         self.b_down.SetLabel('Total bytes down: ' + self.utility.size_format(b_down))
@@ -2137,7 +2212,7 @@ class CreditMiningList(SizeList):
         SizeList.SetData(self, data)
 
         if len(data) > 0:
-            data = [(file.infohash, ['- / -', '- / -', '', file.infohash, ''], file, CreditMiningListItem) for file in data]
+            data = [(file.infohash, ['- / -', '- / -', '%d / %d' % (file.num_seeders, file.num_leechers), file.infohash, ''], file, CreditMiningListItem) for file in data]
         else:
             message = "No credit mining data available."
             self.list.ShowMessage(message)
@@ -2149,7 +2224,7 @@ class CreditMiningList(SizeList):
     def RefreshData(self, key, data):
         List.RefreshData(self, key, data)
 
-        data = (data.infohash, ['-', '-', '', data.infohash, ''], data)
+        data = (data.infohash, ['-', '-', '%d / %d' % (data.num_seeders, data.num_leechers), data.infohash, ''], data)
         self.list.RefreshData(key, data)
 
     def SetNrResults(self, nr):

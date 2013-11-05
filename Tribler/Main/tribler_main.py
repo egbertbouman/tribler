@@ -221,8 +221,9 @@ class ABCApp():
             from Tribler.Main.vwxGUI.UserDownloadChoice import UserDownloadChoice
             UserDownloadChoice.get_singleton().set_utility(self.utility)
 
-            from Tribler.Policies.ChannelBooster import ChannelBooster
-            self.guiUtility.channel_booster = ChannelBooster(s, '3c8378fc3493b5772b1e6a25672d3889367cb7c3'.decode('hex'))
+            from Tribler.Policies.ChannelBooster import BoostingManager
+            self.guiUtility.boosting_manager = BoostingManager(s)
+            self.guiUtility.boosting_manager.add_source('3c8378fc3493b5772b1e6a25672d3889367cb7c3'.decode('hex'))
 
             self.splash.tick('Initializing Family Filter')
             cat = Category.getInstance()

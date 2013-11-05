@@ -10,7 +10,7 @@ from traceback import print_exc
 
 from Tribler.Core.Session import Session
 from Tribler.Core.SessionConfig import SessionStartupConfig
-from Tribler.Policies.ChannelBooster import ChannelBooster, RandomPolicy, CreationDatePolicy, SeederRatioPolicy
+from Tribler.Policies.ChannelBooster import BoostingManager, RandomPolicy, CreationDatePolicy, SeederRatioPolicy
 from Tribler.community.channel.community import ChannelCommunity
 from Tribler.community.channel.preview import PreviewChannelCommunity
 from Tribler.community.allchannel.community import AllChannelCommunity
@@ -21,8 +21,8 @@ def usage():
     print "Options:"
     print "   --db_interval <interval>\tnumber of seconds between database refreshes"
     print "   --sw_interval <interval>\tnumber of seconds between swarm selection"
-    print "   --max_eligible <max>\t\tmaximum number of swarms that should be"
-    print "   \t\t\t\ttaken into consideration"
+    print "   --max_per_source <max>\tmaximum number of swarms per source"
+    print "   \t\t\t\tthat should be taken into consideration"
     print "   --max_active <max>\t\tmaximum number of swarms that should be"
     print "   \t\t\t\tactive simultaneously"
     print "   --policy <policy>\t\tpolicy for swarm selection"
@@ -36,7 +36,7 @@ def usage():
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hd:s:e:a:p:", ["help", "db_interval=", "sw_interval=", "max_eligible=", "max_active=", "policy="])
+        opts, args = getopt.getopt(sys.argv[1:], "hd:s:m:a:p:", ["help", "db_interval=", "sw_interval=", "max_per_source=", "max_active=", "policy="])
     except getopt.GetoptError as err:
         print str(err)
         usage()
@@ -51,7 +51,7 @@ def main():
             kwargs['db_interval'] = int(a)
         elif o in ("-s", "--sw_interval"):
             kwargs['sw_interval'] = int(a)
-        elif o in ("-e", "--max_eligible"):
+        elif o in ("-m", "--max_per_source"):
             kwargs['max_eligible'] = int(a)
         elif o in ("-a", "--max_active"):
             kwargs['max_active'] = int(a)
@@ -108,7 +108,8 @@ def main():
     dispersy = s.get_dispersy_instance()
     dispersy.callback.call(load_communities)
 
-    cb = ChannelBooster(s, dispersy_cid, **kwargs)
+    bm = BoostingManager(s, **kwargs)
+    bm.add_source(dispersy_cid)
 
     try:
         while True:

@@ -15,7 +15,7 @@ from Tribler.Core.simpledefs import NTFY_TORRENTS, NTFY_UPDATE, NTFY_INSERT
 from Tribler.Core.TorrentDef import TorrentDef, TorrentDefNoMetainfo
 from Tribler.Core.DownloadConfig import DownloadStartupConfig
 from Tribler.Main.globals import DefaultDownloadStartupConfig
-from Tribler.TrackerChecking.TrackerChecking import multiTrackerChecking, singleTrackerStatus
+from Tribler.TrackerChecking.TrackerChecking import singleTrackerStatus
 
 CREDIT_MINING_PATH = os.path.join(DefaultDownloadStartupConfig.getInstance().get_dest_dir(), "credit_mining")
 
@@ -42,8 +42,7 @@ class BoostingManager:
         self.set_policy((policy or SeederRatioPolicy)(self.session))
 
         self.session.lm.rawserver.add_task(self._select_torrent, self.swarm_interval)
-        self.session.lm.rawserver.add_task(self.scrape_trackers, 30)
-        # self.session.lm.rawserver.add_task(lambda: self.remove_source(self.boosting_sources.keys()[0]), 60) # For testing
+        self.session.lm.rawserver.add_task(self.scrape_trackers, 60)
 
     def set_policy(self, policy):
         self.policy = policy
@@ -96,15 +95,19 @@ class BoostingManager:
                 for tracker in torrent['metainfo'].get_trackers_as_single_tuple():
                     tracker_to_torrent[tracker].append(infohash)
 
-        # TODO : calc max?
+        results = defaultdict(lambda: [0, 0])
         for tracker, infohashes in tracker_to_torrent.iteritems():
             tracker_status = singleTrackerStatus({'infohash': infohashes[0]}, tracker, lambda t: tracker_to_torrent[t])
             for infohash, num_peers in tracker_status.iteritems():
-                self.torrents[infohash]['num_seeders'] = num_peers[0]
-                self.torrents[infohash]['num_leechers'] = num_peers[1]
+                results[infohash][0] = max(results[infohash][0], num_peers[0])
+                results[infohash][1] = max(results[infohash][1], num_peers[1])
             print >> sys.stderr, 'BoostingManager: got reply from tracker', tracker_status
 
-        self.session.lm.rawserver.add_task(self.scrape_trackers, 300)
+        for infohash, num_peers in results.iteritems():
+            self.torrents[infohash]['num_seeders'] = num_peers[0]
+            self.torrents[infohash]['num_leechers'] = num_peers[1]
+
+        self.session.lm.rawserver.add_task(self.scrape_trackers, 1800)
 
     def _select_torrent(self):
         if self.policy:

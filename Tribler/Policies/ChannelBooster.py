@@ -130,12 +130,14 @@ class BoostingManager:
                 # Add the download to libtorrent.
                 dscfg = DownloadStartupConfig()
                 dscfg.set_dest_dir(CREDIT_MINING_PATH)
-                self.torrents[infohash_start]['download'] = self.session.start_download(tdef, dscfg, hidden=True, share_mode=True)
+                torrent['download'] = self.session.lm.add(tdef, dscfg, pstate=torrent.get('pstate', None), hidden=True, share_mode=True)
                 print >> sys.stderr, 'BoostingManager: downloading torrent', infohash_start.encode('hex')
 
             # Stop a torrent.
             if infohash_stop:
-                download = self.torrents[infohash_stop].pop('download')
+                torrent = self.torrents[infohash_stop]
+                download = torrent.pop('download')
+                torrent['pstate'] = {'engineresumedata': download.handle.write_resume_data()}
                 self.session.remove_download(download)
                 print >> sys.stderr, 'BoostingManager: removing torrent', infohash_stop.encode('hex')
 

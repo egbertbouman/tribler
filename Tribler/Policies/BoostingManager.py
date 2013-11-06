@@ -176,7 +176,7 @@ class ChannelSource(BoostingSource):
         self.channelcast_db = self.session.lm.channelcast_db
 
         self.community = None
-        self.database_updated = False
+        self.database_updated = True
 
         self.session.add_observer(self._on_database_updated, NTFY_TORRENTS, [NTFY_INSERT, NTFY_UPDATE])
         self.session.lm.rawserver.add_task(lambda cid=dispersy_cid: self._set_source(cid), 0, id=self.source)

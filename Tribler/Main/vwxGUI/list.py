@@ -286,16 +286,16 @@ class CreditMiningSearchManager(BaseManager):
 
     def __init__(self, list):
         BaseManager.__init__(self, list)
-        self.channel_booster = self.guiutility.channel_booster
+        self.boosting_manager = self.guiutility.boosting_manager
         self.library_manager = self.guiutility.library_manager
 
     def refresh(self):
         startWorker(self._on_data, self.getHitsInCategory, uId=u"CreditMiningSearchManager_refresh", retryOnBusy=True, priority=GUI_PRI_DISPERSY)
 
     def getTorrentFromInfohash(self, infohash):
-        torrent = self.channel_booster.torrents_eligible.get(infohash, None)
+        torrent = self.boosting_manager.torrents.get(infohash, None)
         if torrent:
-            t = LibraryTorrent('', infohash, '', '', torrent['Torrent.name'], torrent['torrent_file_name'], torrent['length'], '', '', torrent['num_seeders'], torrent['num_leechers'], None)
+            t = LibraryTorrent('', infohash, '', '', torrent['name'], '', torrent['length'], '', '', torrent['num_seeders'], torrent['num_leechers'], None)
             t.torrent_db = self.library_manager.torrent_db
             t.channelcast_db = self.library_manager.channelcast_db
             t.channel
@@ -303,7 +303,7 @@ class CreditMiningSearchManager(BaseManager):
             return t
 
     def getHitsInCategory(self):
-        hits = [self.getTorrentFromInfohash(infohash) for infohash in self.channel_booster.torrents_eligible]
+        hits = [self.getTorrentFromInfohash(infohash) for infohash in self.boosting_manager.torrents]
         return [len(hits), hits]
 
     def refresh_partial(self, ids):
@@ -311,7 +311,7 @@ class CreditMiningSearchManager(BaseManager):
             startWorker(self.list.RefreshDelayedData, self.getTorrentFromInfohash, cargs=(infohash,), wargs=(infohash,), retryOnBusy=True, priority=GUI_PRI_DISPERSY)
 
     def refresh_if_exists(self, infohashes, force=False):
-        if any([self.channel_booster.torrents_eligible.has_key(infohash) for infohash in infohashes]):
+        if any([self.boosting_manager.torrents.has_key(infohash) for infohash in infohashes]):
             print >> sys.stderr, long(time()), "Scheduling a refresh, missing some infohashes in the Credit Mining overview"
             self.refresh()
         else:
@@ -2084,11 +2084,11 @@ class CreditMiningList(SizeList):
 
         self.initnumitems = False
 
-        columns = [{'name': 'Speed up/down', 'width': '33em', 'autoRefresh': False},
-                   {'name': 'Bytes up/down', 'width': '33em', 'autoRefresh': False},
-                   {'name': 'Seeders/leechers', 'width': '28em'},
-                   {'name': 'Hash', 'width':  wx.LIST_AUTOSIZE, 'fmt': lambda ih: ih.encode('hex')[:12]},
-                   {'name': 'Investment Yield', 'width': '30em', 'autoRefresh': False}]
+        columns = [{'name': 'Speed up/down', 'width': '32em', 'autoRefresh': False},
+                   {'name': 'Bytes up/down', 'width': '32em', 'autoRefresh': False},
+                   {'name': 'Seeders/leechers', 'width': '27em'},
+                   {'name': 'Hash', 'width':  wx.LIST_AUTOSIZE, 'fmt': lambda ih: ih.encode('hex')[:10]},
+                   {'name': 'Source', 'width': '40em', 'type': 'method', 'method': self.CreateSource}]
 
         columns = self.guiutility.SetColumnInfo(CreditMiningListItem, columns)
         ColumnsManager.getInstance().setColumns(CreditMiningListItem, columns)
@@ -2108,6 +2108,15 @@ class CreditMiningList(SizeList):
         if self.guiutility.frame.top_bg:
             header = FancyPanel(parent, border=wx.BOTTOM)
             text = wx.StaticText(header, -1, 'Investment overview')
+
+            def OnAddSource(event):
+                dlg = wx.TextEntryDialog(None, 'Please enter a RSS feed URL or a dispersy channel identifier:', 'Add boosting source', '')
+                if dlg.ShowModal() == wx.ID_OK and dlg.GetValue():
+                    self.guiutility.boosting_manager.add_source(dlg.GetValue())
+                dlg.Destroy()
+
+            addsource = LinkStaticText(header, '(Add boosting source)', icon=None)
+            addsource.Bind(wx.EVT_LEFT_UP, OnAddSource)
             self.b_up = wx.StaticText(header, -1, 'Total bytes up: -')
             self.b_down = wx.StaticText(header, -1, 'Total bytes down: -')
             self.s_up = wx.StaticText(header, -1, 'Total speed up: -')
@@ -2115,7 +2124,10 @@ class CreditMiningList(SizeList):
             _set_font(text, size_increment=2, fontweight=wx.FONTWEIGHT_BOLD)
             sizer = wx.BoxSizer(wx.VERTICAL)
             sizer.AddStretchSpacer()
-            sizer.Add(text, 0, wx.LEFT | wx.BOTTOM, 5)
+            titleSizer = wx.BoxSizer(wx.HORIZONTAL)
+            titleSizer.Add(text, 0, wx.ALIGN_BOTTOM | wx.RIGHT, 5)
+            titleSizer.Add(addsource, 0, wx.ALIGN_BOTTOM)
+            sizer.Add(titleSizer, 0, wx.LEFT | wx.BOTTOM, 5)
             sizer.Add(self.b_up, 0, wx.LEFT, 5)
             sizer.Add(self.b_down, 0, wx.LEFT, 5)
             sizer.Add(self.s_up, 0, wx.LEFT, 5)
@@ -2134,6 +2146,13 @@ class CreditMiningList(SizeList):
         footer.SetMinSize((-1, 0))
         return footer
 
+    @warnWxThread
+    def CreateSource(self, parent, item):
+        torrent = self.guiutility.boosting_manager.torrents.get(item.original_data.infohash, None)
+        text = torrent.get('source', '')
+        text = text[:30] + '..' if len(text) > 32 else text
+        return wx.StaticText(parent, -1, text)
+
     def OnExpand(self, item):
         List.OnExpand(self, item)
         return True
@@ -2144,9 +2163,11 @@ class CreditMiningList(SizeList):
 
         newFilter = self.newfilter
 
-        if len(newDS) > 0:
-            ids = newDS.keys()
-            self.GetManager().refresh_if_exists(ids, force=True)  # new torrent?
+        new_keys = self.guiutility.boosting_manager.torrents.keys()
+        old_keys = getattr(self, 'old_keys', [])
+        if len(new_keys) != len(old_keys):
+            self.GetManager().refresh_if_exists(new_keys, force=True)
+            self.old_keys = new_keys
 
         if didStateChange:
             if self.statefilter != None:
@@ -2170,11 +2191,7 @@ class CreditMiningList(SizeList):
                     b_up += bytes_up
                     b_down += bytes_down
 
-                    ratio = bytes_down / bytes_up if bytes_up else sys.maxint
-                    i_yield = 'Struck gold' if ratio > 1.0 else ('Poor' if ratio < 1.0 else 'Moderate')
-
                     item.RefreshColumn(1, self.utility.size_format(bytes_up) + ' / ' + self.utility.size_format(bytes_down))
-                    item.RefreshColumn(4, i_yield)
 
                 item.SetSelectedColour(wx.Colour(255, 175, 175))
                 item.SetDeselectedColour(wx.Colour(255, 200, 200))

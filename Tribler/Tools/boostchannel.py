@@ -10,7 +10,7 @@ from traceback import print_exc
 
 from Tribler.Core.Session import Session
 from Tribler.Core.SessionConfig import SessionStartupConfig
-from Tribler.Policies.ChannelBooster import BoostingManager, RandomPolicy, CreationDatePolicy, SeederRatioPolicy
+from Tribler.Policies.BoostingManager import BoostingManager, RandomPolicy, CreationDatePolicy, SeederRatioPolicy
 from Tribler.community.channel.community import ChannelCommunity
 from Tribler.community.channel.preview import PreviewChannelCommunity
 from Tribler.community.allchannel.community import AllChannelCommunity

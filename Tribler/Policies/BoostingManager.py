@@ -4,6 +4,8 @@ import os
 import sys
 import urllib
 import random
+import HTMLParser
+import libtorrent as lt
 
 from hashlib import sha1
 from collections import defaultdict
@@ -249,6 +251,7 @@ class RSSFeedSource(BoostingSource):
         BoostingSource.__init__(self, session, rss_feed, db_interval, max_torrents, callback)
 
         self.ltmgr = LibtorrentMgr.getInstance()
+        self.unescape = HTMLParser.HTMLParser().unescape
 
         self.feed_handle = None
 
@@ -285,9 +288,18 @@ class RSSFeedSource(BoostingSource):
                     # Store the torrents as rss-infohash_as_hex.torrent.
                     torrent_filename = os.path.join(CREDIT_MINING_PATH, 'rss-%s.torrent' % infohash.encode('hex'))
                     if not os.path.exists(torrent_filename):
-                        urllib.urlretrieve(item['url'], torrent_filename)
-                    # Load the torrent from disk and create a torrent dict.
-                    tdef = TorrentDef.load(torrent_filename)
+                        try:
+                            # Download the torrent and create a TorrentDef.
+                            f = urllib.urlopen(self.unescape(item['url']))
+                            metainfo = lt.bdecode(f.read())
+                            tdef = TorrentDef.load_from_dict(metainfo)
+                            tdef.save(torrent_filename)
+                        except:
+                            print >> sys.stderr, 'RSSFeedSource: could not get torrent, skipping', item['url']
+                            continue
+                    else:
+                        tdef = TorrentDef.load(torrent_filename)
+                    # Create a torrent dict.
                     torrent_values = [item['title'], tdef, tdef.get_creation_date(), tdef.get_length(), len(tdef.get_files()), -1, -1]
                     self.torrents[infohash] = dict(zip(torrent_keys, torrent_values))
                     # Notify the BoostingManager and provide the real infohash.

@@ -67,10 +67,7 @@ def main():
         else:
             assert False, "Unhandled option"
 
-    if len(args) != 1:
-        print "Invalid number of arguments"
-        sys.exit(2)
-    elif len(args[0]) != 40:
+    if len(args[0]) != 40:
         print "Incorrect dispersy_cid"
         sys.exit(2)
     else:

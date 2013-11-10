@@ -2,6 +2,7 @@
 
 import os
 import sys
+import glob
 import urllib
 import random
 import HTMLParser
@@ -26,7 +27,7 @@ DEBUG = False
 
 class BoostingManager:
 
-    def __init__(self, session, policy=None, db_interval=20, sw_interval=20, max_per_source=100, max_active=5):
+    def __init__(self, session, policy=None, src_interval=20, sw_interval=20, max_per_source=100, max_active=5):
         self.session = session
         self.lt_mgr = LibtorrentMgr.getInstance()
 
@@ -37,7 +38,7 @@ class BoostingManager:
         self.max_torrents_per_source = max_per_source
         self.max_torrents_active = max_active
 
-        self.database_interval = db_interval
+        self.source_interval = src_interval
         self.swarm_interval = sw_interval
 
         # SeederRatioPolicy is the default policy
@@ -63,10 +64,12 @@ class BoostingManager:
 
     def add_source(self, source):
         if source not in self.boosting_sources:
-            if source.startswith('http://'):
-                self.boosting_sources[source] = RSSFeedSource(self.session, source, self.database_interval, self.max_torrents_per_source, self.on_torrent_insert)
+            if os.path.isdir(source):
+                self.boosting_sources[source] = DirectorySource(self.session, source, self.source_interval, self.max_torrents_per_source, self.on_torrent_insert)
+            elif source.startswith('http://'):
+                self.boosting_sources[source] = RSSFeedSource(self.session, source, self.source_interval, self.max_torrents_per_source, self.on_torrent_insert)
             elif len(source) == 20:
-                self.boosting_sources[source] = ChannelSource(self.session, source, self.database_interval, self.max_torrents_per_source, self.on_torrent_insert)
+                self.boosting_sources[source] = ChannelSource(self.session, source, self.source_interval, self.max_torrents_per_source, self.on_torrent_insert)
             else:
                 print >> sys.stderr, 'BoostingManager: got unknown source', source
         else:
@@ -80,7 +83,7 @@ class BoostingManager:
     def on_torrent_insert(self, source, infohash, torrent):
         self.torrents[infohash] = torrent
 
-        if source.startswith('http://'):
+        if os.path.isdir(source) or source.startswith('http://'):
             source_str = source
         elif len(source) == 20:
             source_str = source.encode('hex')
@@ -151,19 +154,19 @@ class BoostingManager:
 
 class BoostingSource:
 
-    def __init__(self, session, source, db_interval, max_torrents, callback):
+    def __init__(self, session, source, interval, max_torrents, callback):
         self.session = session
 
         self.torrents = {}
         self.source = source
-        self.database_interval = db_interval
+        self.interval = interval
         self.max_torrents = max_torrents
         self.callback = callback
 
     def kill_tasks(self):
         self.session.lm.rawserver.kill_tasks(self.source)
 
-    def _set_source(self, source):
+    def _load(self, source):
         pass
 
     def _update(self):
@@ -172,8 +175,8 @@ class BoostingSource:
 
 class ChannelSource(BoostingSource):
 
-    def __init__(self, session, dispersy_cid, db_interval, max_torrents, callback):
-        BoostingSource.__init__(self, session, dispersy_cid, db_interval, max_torrents, callback)
+    def __init__(self, session, dispersy_cid, interval, max_torrents, callback):
+        BoostingSource.__init__(self, session, dispersy_cid, interval, max_torrents, callback)
 
         self.channelcast_db = self.session.lm.channelcast_db
 
@@ -181,13 +184,13 @@ class ChannelSource(BoostingSource):
         self.database_updated = True
 
         self.session.add_observer(self._on_database_updated, NTFY_TORRENTS, [NTFY_INSERT, NTFY_UPDATE])
-        self.session.lm.rawserver.add_task(lambda cid=dispersy_cid: self._set_source(cid), 0, id=self.source)
+        self.session.lm.rawserver.add_task(lambda cid=dispersy_cid: self._load(cid), 0, id=self.source)
 
     def kill_tasks(self):
         BoostingSource.kill_tasks(self)
         self.session.remove_observer(self._on_database_updated)
 
-    def _set_source(self, dispersy_cid):
+    def _load(self, dispersy_cid):
         dispersy = self.session.get_dispersy_instance()
 
         def join_community():
@@ -239,7 +242,7 @@ class ChannelSource(BoostingSource):
 
                 self.database_updated = False
 
-            self.session.lm.rawserver.add_task(self._update, self.database_interval, id=self.source)
+            self.session.lm.rawserver.add_task(self._update, self.interval, id=self.source)
 
     def _on_database_updated(self, subject, change_type, infohash):
         self.database_updated = True
@@ -247,17 +250,17 @@ class ChannelSource(BoostingSource):
 
 class RSSFeedSource(BoostingSource):
 
-    def __init__(self, session, rss_feed, db_interval, max_torrents, callback):
-        BoostingSource.__init__(self, session, rss_feed, db_interval, max_torrents, callback)
+    def __init__(self, session, rss_feed, interval, max_torrents, callback):
+        BoostingSource.__init__(self, session, rss_feed, interval, max_torrents, callback)
 
         self.ltmgr = LibtorrentMgr.getInstance()
         self.unescape = HTMLParser.HTMLParser().unescape
 
         self.feed_handle = None
 
-        self.session.lm.rawserver.add_task(lambda feed=rss_feed: self._set_source(feed), 0, id=self.source)
+        self.session.lm.rawserver.add_task(lambda feed=rss_feed: self._load(feed), 0, id=self.source)
 
-    def _set_source(self, rss_feed):
+    def _load(self, rss_feed):
         self.feed_handle = self.ltmgr.ltsession.add_feed({'url': rss_feed, 'auto_download': False, 'auto_map_handles': False})
 
         def wait_for_feed():
@@ -306,7 +309,43 @@ class RSSFeedSource(BoostingSource):
                     if self.callback:
                         self.callback(self.source, tdef.get_infohash(), self.torrents[infohash])
 
-            self.session.lm.rawserver.add_task(self._update, self.database_interval, id=self.source)
+            self.session.lm.rawserver.add_task(self._update, self.interval, id=self.source)
+
+
+class DirectorySource(BoostingSource):
+
+    def __init__(self, session, directory, interval, max_torrents, callback):
+        BoostingSource.__init__(self, session, directory, interval, max_torrents, callback)
+
+        self._load(directory)
+
+    def _load(self, directory):
+        if os.path.isdir(directory):
+            self.session.lm.rawserver.add_task(self._update, 0, id=self.source)
+            print >> sys.stderr, 'DirectorySource: got directory', directory
+        else:
+            print >> sys.stderr, 'DirectorySource: could not find directory', directory
+
+    def _update(self):
+        if len(self.torrents) < self.max_torrents:
+
+            torrent_keys = ['name', 'metainfo', 'creation_date', 'length', 'num_files', 'num_seeders', 'num_leechers']
+
+            for torrent_filename in glob.glob(self.source + '/*.torrent'):
+                if torrent_filename not in self.torrents:
+                    try:
+                        tdef = TorrentDef.load(torrent_filename)
+                    except:
+                        print >> sys.stderr, 'DirectorySource: could not load torrent, skipping', torrent_filename
+                        continue
+                    # Create a torrent dict.
+                    torrent_values = [tdef.get_name_as_unicode(), tdef, tdef.get_creation_date(), tdef.get_length(), len(tdef.get_files()), -1, -1]
+                    self.torrents[torrent_filename] = dict(zip(torrent_keys, torrent_values))
+                    # Notify the BoostingManager.
+                    if self.callback:
+                        self.callback(self.source, tdef.get_infohash(), self.torrents[torrent_filename])
+
+            self.session.lm.rawserver.add_task(self._update, self.interval, id=self.source)
 
 
 class BoostingPolicy:

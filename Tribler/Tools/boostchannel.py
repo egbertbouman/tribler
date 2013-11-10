@@ -48,7 +48,7 @@ def main():
             usage()
             sys.exit(0)
         elif o in ("-d", "--db_interval"):
-            kwargs['db_interval'] = int(a)
+            kwargs['src_interval'] = int(a)
         elif o in ("-s", "--sw_interval"):
             kwargs['sw_interval'] = int(a)
         elif o in ("-m", "--max_per_source"):

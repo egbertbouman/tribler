@@ -30,7 +30,7 @@ class BoostingManager:
 
     def __init__(self, session, policy=None, src_interval=20, sw_interval=20, max_per_source=100, max_active=5):
         self.session = session
-        self.lt_mgr = LibtorrentMgr.getInstance()
+        self.ltmgr = LibtorrentMgr.getInstance()
         self.tqueue = TimedTaskQueue("BoostingManager")
 
         self.boosting_sources = {}
@@ -42,6 +42,8 @@ class BoostingManager:
 
         self.source_interval = src_interval
         self.swarm_interval = sw_interval
+
+        self.set_share_mode_params(share_mode_target=1)
 
         # SeederRatioPolicy is the default policy
         self.set_policy((policy or SeederRatioPolicy)(self.session))

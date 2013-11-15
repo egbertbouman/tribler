@@ -83,16 +83,23 @@ class BoostingManager:
             source.kill_tasks()
 
     def on_torrent_insert(self, source, infohash, torrent):
-        self.torrents[infohash] = torrent
-
+        # Remember where we got this torrent from
         if os.path.isdir(source) or source.startswith('http://'):
             source_str = source
         elif len(source) == 20:
             source_str = source.encode('hex')
         else:
             source_str = 'unknown source'
-        self.torrents[infohash]['source'] = source_str
+        torrent['source'] = source_str
 
+        # Preload the TorrentDef.
+        if torrent['metainfo']:
+            if not isinstance(torrent['metainfo'], TorrentDef):
+                torrent['metainfo'] = TorrentDef.load(torrent['metainfo'])
+        else:
+            torrent['metainfo'] = TorrentDefNoMetainfo(infohash, torrent['name'])
+
+        self.torrents[infohash] = torrent
         print >> sys.stderr, 'BoostingManager: got new torrent', infohash.encode('hex'), 'from', source_str
 
     def scrape_trackers(self):
@@ -128,19 +135,10 @@ class BoostingManager:
             if infohash_start:
                 torrent = self.torrents[infohash_start]
 
-                # Load the TorrentDef.
-                if torrent['metainfo']:
-                    if isinstance(torrent['metainfo'], TorrentDef):
-                        tdef = torrent['metainfo']
-                    else:
-                        tdef = TorrentDef.load(torrent['metainfo'])
-                else:
-                    tdef = TorrentDefNoMetainfo(infohash_start, torrent['name'])
-
                 # Add the download to libtorrent.
                 dscfg = DownloadStartupConfig()
                 dscfg.set_dest_dir(CREDIT_MINING_PATH)
-                torrent['download'] = self.session.lm.add(tdef, dscfg, pstate=torrent.get('pstate', None), hidden=True, share_mode=True)
+                torrent['download'] = self.session.lm.add(torrent['metainfo'], dscfg, pstate=torrent.get('pstate', None), hidden=True, share_mode=True)
                 print >> sys.stderr, 'BoostingManager: downloading torrent', infohash_start.encode('hex')
 
             # Stop a torrent.

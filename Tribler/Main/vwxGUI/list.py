@@ -24,14 +24,15 @@ from Tribler.Main.vwxGUI.GuiImageManager import GuiImageManager
 
 from Tribler.Main.vwxGUI import warnWxThread, DEFAULT_BACKGROUND, \
     LIST_GREY, LIST_GREEN, LIST_ORANGE, LIST_DESELECTED, SEPARATOR_GREY, \
-    GRADIENT_LGREY, GRADIENT_DGREY, TRIBLER_RED, format_time
+    GRADIENT_LGREY, GRADIENT_DGREY, TRIBLER_RED, format_time, LIST_SELECTED, \
+    LIST_EXPANDED, LIST_DARKBLUE
 from Tribler.Main.vwxGUI.list_header import ListHeader, DownloadFilter, \
     TorrentFilter, ChannelFilter
 from Tribler.Main.vwxGUI.list_body import ListBody, FixedListBody
 from Tribler.Main.vwxGUI.list_footer import ListFooter
 from Tribler.Main.vwxGUI.list_item import ChannelListItem, TorrentListItem, \
     ChannelListItemAssociatedTorrents, ColumnsManager, LibraryListItem, \
-    DragItem, ActivityListItem
+    DragItem, ActivityListItem, CreditMiningListItem
 from Tribler.Main.vwxGUI.list_details import TorrentDetails, ChannelDetails, \
     SearchInfoPanel, LibraryDetails, LibraryInfoPanel, ChannelInfoPanel, \
     ChannelsExpandedPanel, VideoplayerExpandedPanel
@@ -41,8 +42,9 @@ from Tribler.Main.vwxGUI.widgets import HorizontalGauge, TorrentStatus, \
 
 from Tribler.Main.Utility.GuiDBHandler import startWorker, cancelWorker, GUI_PRI_DISPERSY
 from Tribler.Main.Utility.GuiDBTuples import Torrent, CollectedTorrent, \
-    ChannelTorrent, Channel
+    ChannelTorrent, Channel, LibraryTorrent
 
+from Tribler.Main.Dialogs.BoostingDialogs import AddBoostingSource, RemoveBoostingSource
 
 DEBUG_RELEVANCE = False
 MAX_REFRESH_PARTIAL = 5
@@ -303,7 +305,7 @@ class CreditMiningSearchManager(BaseManager):
             return t
 
     def getHitsInCategory(self):
-        hits = [self.getTorrentFromInfohash(infohash) for infohash in self.boosting_manager.torrents]
+        hits = [self.getTorrentFromInfohash(infohash) for infohash in self.boosting_manager.torrents.keys()]
         return [len(hits), hits]
 
     def refresh_partial(self, ids):
@@ -2110,13 +2112,21 @@ class CreditMiningList(SizeList):
             text = wx.StaticText(header, -1, 'Investment overview')
 
             def OnAddSource(event):
-                dlg = wx.TextEntryDialog(None, 'Please enter a RSS feed URL or a dispersy channel identifier:', 'Add boosting source', '')
+                dlg = AddBoostingSource(None)
                 if dlg.ShowModal() == wx.ID_OK and dlg.GetValue():
                     self.guiutility.boosting_manager.add_source(dlg.GetValue())
                 dlg.Destroy()
 
-            addsource = LinkStaticText(header, '(Add boosting source)', icon=None)
+            def OnRemoveSource(event):
+                dlg = RemoveBoostingSource(None)
+                if dlg.ShowModal() == wx.ID_OK and dlg.GetValue():
+                    self.guiutility.boosting_manager.remove_source(dlg.GetValue())
+                dlg.Destroy()
+
+            addsource = LinkStaticText(header, 'Add', icon=None)
             addsource.Bind(wx.EVT_LEFT_UP, OnAddSource)
+            removesource = LinkStaticText(header, 'Remove', icon=None)
+            removesource.Bind(wx.EVT_LEFT_UP, OnRemoveSource)
             self.b_up = wx.StaticText(header, -1, 'Total bytes up: -')
             self.b_down = wx.StaticText(header, -1, 'Total bytes down: -')
             self.s_up = wx.StaticText(header, -1, 'Total speed up: -')
@@ -2126,7 +2136,11 @@ class CreditMiningList(SizeList):
             sizer.AddStretchSpacer()
             titleSizer = wx.BoxSizer(wx.HORIZONTAL)
             titleSizer.Add(text, 0, wx.ALIGN_BOTTOM | wx.RIGHT, 5)
+            titleSizer.Add(wx.StaticText(header, -1, '('), 0, wx.ALIGN_BOTTOM)
             titleSizer.Add(addsource, 0, wx.ALIGN_BOTTOM)
+            titleSizer.Add(wx.StaticText(header, -1, '/'), 0, wx.ALIGN_BOTTOM)
+            titleSizer.Add(removesource, 0, wx.ALIGN_BOTTOM)
+            titleSizer.Add(wx.StaticText(header, -1, ' boosting source)'), 0, wx.ALIGN_BOTTOM)
             sizer.Add(titleSizer, 0, wx.LEFT | wx.BOTTOM, 5)
             sizer.Add(self.b_up, 0, wx.LEFT, 5)
             sizer.Add(self.b_down, 0, wx.LEFT, 5)
@@ -2142,6 +2156,7 @@ class CreditMiningList(SizeList):
 
     @warnWxThread
     def CreateFooter(self, parent):
+        self.list.ShowMessage("No credit mining data available.")
         footer = ListFooter(parent, radius=0)
         footer.SetMinSize((-1, 0))
         return footer
@@ -2227,8 +2242,7 @@ class CreditMiningList(SizeList):
         if len(data) > 0:
             data = [(file.infohash, ['- / -', '- / -', '%d / %d' % (file.num_seeders, file.num_leechers), file.infohash, ''], file, CreditMiningListItem) for file in data]
         else:
-            message = "No credit mining data available."
-            self.list.ShowMessage(message)
+            self.list.ShowMessage("No credit mining data available.")
             self.SetNrResults(0)
 
         self.list.SetData(data)

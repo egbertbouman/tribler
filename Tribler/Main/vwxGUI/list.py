@@ -45,6 +45,7 @@ from Tribler.Main.Utility.GuiDBTuples import Torrent, CollectedTorrent, \
     ChannelTorrent, Channel, LibraryTorrent
 
 from Tribler.Main.Dialogs.BoostingDialogs import AddBoostingSource, RemoveBoostingSource
+from Tribler.Policies.BoostingManager import BoostingManager
 
 DEBUG_RELEVANCE = False
 MAX_REFRESH_PARTIAL = 5
@@ -288,7 +289,7 @@ class CreditMiningSearchManager(BaseManager):
 
     def __init__(self, list):
         BaseManager.__init__(self, list)
-        self.boosting_manager = self.guiutility.boosting_manager
+        self.boosting_manager = BoostingManager.get_instance()
         self.library_manager = self.guiutility.library_manager
 
     def refresh(self):
@@ -2076,6 +2077,7 @@ class LibraryList(SizeList):
 class CreditMiningList(SizeList):
 
     def __init__(self, parent):
+        self.boosting_manager = BoostingManager.get_instance()
         self.guiutility = GUIUtility.getInstance()
         self.utility = self.guiutility.utility
 
@@ -2114,13 +2116,13 @@ class CreditMiningList(SizeList):
             def OnAddSource(event):
                 dlg = AddBoostingSource(None)
                 if dlg.ShowModal() == wx.ID_OK and dlg.GetValue():
-                    self.guiutility.boosting_manager.add_source(dlg.GetValue())
+                    self.boosting_manager.add_source(dlg.GetValue())
                 dlg.Destroy()
 
             def OnRemoveSource(event):
                 dlg = RemoveBoostingSource(None)
                 if dlg.ShowModal() == wx.ID_OK and dlg.GetValue():
-                    self.guiutility.boosting_manager.remove_source(dlg.GetValue())
+                    self.boosting_manager.remove_source(dlg.GetValue())
                 dlg.Destroy()
 
             addsource = LinkStaticText(header, 'Add', icon=None)
@@ -2163,7 +2165,7 @@ class CreditMiningList(SizeList):
 
     @warnWxThread
     def CreateSource(self, parent, item):
-        torrent = self.guiutility.boosting_manager.torrents.get(item.original_data.infohash, None)
+        torrent = self.boosting_manager.torrents.get(item.original_data.infohash, None)
         text = torrent.get('source', '')
         text = text[:30] + '..' if len(text) > 32 else text
         return wx.StaticText(parent, -1, text)
@@ -2178,7 +2180,7 @@ class CreditMiningList(SizeList):
 
         newFilter = self.newfilter
 
-        new_keys = self.guiutility.boosting_manager.torrents.keys()
+        new_keys = self.boosting_manager.torrents.keys()
         old_keys = getattr(self, 'old_keys', [])
         if len(new_keys) != len(old_keys):
             self.GetManager().refresh_if_exists(new_keys, force=True)

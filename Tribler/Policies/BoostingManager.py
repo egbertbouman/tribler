@@ -3,12 +3,14 @@
 import os
 import sys
 import glob
+import json
 import urllib
 import random
 import HTMLParser
 import libtorrent as lt
 
 from hashlib import sha1
+from traceback import print_exc
 from collections import defaultdict
 
 from Tribler.Core.Libtorrent.LibtorrentMgr import LibtorrentMgr
@@ -28,8 +30,13 @@ DEBUG = False
 
 class BoostingManager:
 
-    def __init__(self, session, policy=None, src_interval=20, sw_interval=20, max_per_source=100, max_active=5):
+    __single = None
+
+    def __init__(self, session, utility=None, policy=None, src_interval=20, sw_interval=20, max_per_source=100, max_active=5):
+        BoostingManager.__single = self
+
         self.session = session
+        self.utility = utility
         self.ltmgr = LibtorrentMgr.getInstance()
         self.tqueue = TimedTaskQueue("BoostingManager")
 
@@ -48,8 +55,43 @@ class BoostingManager:
         # SeederRatioPolicy is the default policy
         self.set_policy((policy or SeederRatioPolicy)(self.session))
 
+        self.load()
+
         self.tqueue.add_task(self._select_torrent, self.swarm_interval)
         self.tqueue.add_task(self.scrape_trackers, 60)
+
+    def get_instance(*args, **kw):
+        if BoostingManager.__single is None:
+            BoostingManager(*args, **kw)
+        return BoostingManager.__single
+    get_instance = staticmethod(get_instance)
+
+    def del_instance(*args, **kw):
+        BoostingManager.__single = None
+    del_instance = staticmethod(del_instance)
+
+    def shutdown(self):
+        self.tqueue.shutdown(True)
+
+    def load(self):
+        if self.utility:
+            try:
+                string_to_source = lambda s: s.decode('hex') if len(s) == 40 and not (os.path.isdir(s) or s.startswith('http://')) else s
+                for source in json.loads(self.utility.read_config('boosting_sources')):
+                    self.add_source(string_to_source(source))
+                print >> sys.stderr, "BoostingManager: initial boosting sources", self.boosting_sources.keys()
+            except:
+                print >> sys.stderr, "BoostingManager: no initial boosting sources"
+
+    def save(self):
+        if self.utility:
+            try:
+                source_to_string = lambda s: s.encode('hex') if len(s) == 20 and not (os.path.isdir(s) or s.startswith('http://')) else s
+                self.utility.write_config('boosting_sources', json.dumps([source_to_string(source) for source in self.boosting_sources.keys()]))
+                print >> sys.stderr, "BoostingManager: saved sources", self.boosting_sources.keys()
+            except:
+                print >> sys.stderr, "BoostingManager: could not save state"
+                print_exc()
 
     def set_policy(self, policy):
         self.policy = policy
@@ -68,6 +110,7 @@ class BoostingManager:
 
     def add_source(self, source):
         if source not in self.boosting_sources:
+            error = False
             if os.path.isdir(source):
                 self.boosting_sources[source] = DirectorySource(self.session, self.tqueue, source, self.source_interval, self.max_torrents_per_source, self.on_torrent_insert)
             elif source.startswith('http://'):
@@ -76,6 +119,9 @@ class BoostingManager:
                 self.boosting_sources[source] = ChannelSource(self.session, self.tqueue, source, self.source_interval, self.max_torrents_per_source, self.on_torrent_insert)
             else:
                 print >> sys.stderr, 'BoostingManager: got unknown source', source
+                error = True
+            if not error:
+                self.save()
         else:
             print >> sys.stderr, 'BoostingManager: already have source', source
 
@@ -83,6 +129,7 @@ class BoostingManager:
         if source_key in self.boosting_sources:
             source = self.boosting_sources.pop(source_key)
             source.kill_tasks()
+            self.save()
 
     def on_torrent_insert(self, source, infohash, torrent):
         # Remember where we got this torrent from
@@ -126,7 +173,7 @@ class BoostingManager:
         self.tqueue.add_task(self.scrape_trackers, 1800)
 
     def _select_torrent(self):
-        if self.policy:
+        if self.policy and self.torrents:
 
             print >> sys.stderr, 'BoostingManager: selecting from', len(self.torrents), 'torrents'
 

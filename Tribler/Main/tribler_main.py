@@ -108,6 +108,8 @@ from Tribler.Core.Statistics.Status.NullReporter import NullReporter
 
 from Tribler.Core.Video.VideoPlayer import return_feasible_playback_modes, PLAYBACKMODE_INTERNAL
 
+from Tribler.Policies.BoostingManager import BoostingManager
+
 # Arno, 2012-06-20: h4x0t DHT import for py2...
 import Tribler.Core.DecentralizedTracking.pymdht.core
 import Tribler.Core.DecentralizedTracking.pymdht.core.identifier
@@ -221,9 +223,7 @@ class ABCApp():
             from Tribler.Main.vwxGUI.UserDownloadChoice import UserDownloadChoice
             UserDownloadChoice.get_singleton().set_utility(self.utility)
 
-            from Tribler.Policies.BoostingManager import BoostingManager
-            self.guiUtility.boosting_manager = BoostingManager(s)
-            self.guiUtility.boosting_manager.add_source('3c8378fc3493b5772b1e6a25672d3889367cb7c3'.decode('hex'))
+            self.boosting_manager = BoostingManager.get_instance(s, self.utility)
 
             self.splash.tick('Initializing Family Filter')
             cat = Category.getInstance()
@@ -956,6 +956,9 @@ class ABCApp():
         if self.guiserver:
             self.guiserver.shutdown(True)
             self.guiserver.delInstance()
+        if self.boosting_manager:
+            self.boosting_manager.shutdown()
+            self.boosting_manager.del_instance()
 
         delete_status_holders()
 

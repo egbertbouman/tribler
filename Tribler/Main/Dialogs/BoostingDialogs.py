@@ -4,6 +4,7 @@ import wx
 
 from Tribler.Main.Utility.GuiDBHandler import startWorker, GUI_PRI_DISPERSY
 from Tribler.Main.vwxGUI.GuiUtility import GUIUtility
+from Tribler.Policies.BoostingManager import BoostingManager
 
 
 class AddBoostingSource(wx.Dialog):
@@ -75,6 +76,7 @@ class RemoveBoostingSource(wx.Dialog):
         wx.Dialog.__init__(self, parent, -1, 'Remove boosting source', size=(475, 135), name="RemoveBoostingSourceDialog")
 
         self.guiutility = GUIUtility.getInstance()
+        self.boosting_manager = BoostingManager.get_instance()
         self.sources = []
         self.source = ''
 
@@ -100,7 +102,7 @@ class RemoveBoostingSource(wx.Dialog):
         self.SetSizer(vSizer)
 
         channels = []
-        for source in self.guiutility.boosting_manager.boosting_sources.keys():
+        for source in self.boosting_manager.boosting_sources.keys():
             if source.startswith('http://'):
                 self.sources.append(source)
             elif len(source) == 20:

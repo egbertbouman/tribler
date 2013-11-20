@@ -105,7 +105,7 @@ def main():
     dispersy = s.get_dispersy_instance()
     dispersy.callback.call(load_communities)
 
-    bm = BoostingManager(s, **kwargs)
+    bm = BoostingManager.get_instance(s, None, **kwargs)
     bm.add_source(dispersy_cid)
 
     try:

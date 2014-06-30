@@ -20,10 +20,9 @@ from Tribler.Core.simpledefs import NTFY_TORRENTS, NTFY_UPDATE, NTFY_INSERT
 from Tribler.Core.TorrentDef import TorrentDef, TorrentDefNoMetainfo
 from Tribler.Core.DownloadConfig import DownloadStartupConfig
 from Tribler.Main.globals import DefaultDownloadStartupConfig
-from Tribler.TrackerChecking.TrackerChecking import singleTrackerStatus
 from Tribler.Utilities.TimedTaskQueue import TimedTaskQueue
-
-CREDIT_MINING_PATH = os.path.join(DefaultDownloadStartupConfig.getInstance().get_dest_dir(), "credit_mining")
+from Tribler.TrackerChecking.TorrentChecking import TorrentChecking
+from Tribler.dispersy.util import call_on_reactor_thread
 
 DEBUG = False
 
@@ -39,6 +38,7 @@ class BoostingManager:
         self.utility = utility
         self.ltmgr = LibtorrentMgr.getInstance()
         self.tqueue = TimedTaskQueue("BoostingManager")
+        self.credit_mining_path = os.path.join(DefaultDownloadStartupConfig.getInstance().get_dest_dir(), "credit_mining")
 
         self.boosting_sources = {}
 
@@ -77,7 +77,7 @@ class BoostingManager:
         if self.utility:
             try:
                 string_to_source = lambda s: s.decode('hex') if len(s) == 40 and not (os.path.isdir(s) or s.startswith('http://')) else s
-                for source in json.loads(self.utility.read_config('boosting_sources')):
+                for source in json.loads(self.utility.config.Read('boosting_sources')):
                     self.add_source(string_to_source(source))
                 print >> sys.stderr, "BoostingManager: initial boosting sources", self.boosting_sources.keys()
             except:
@@ -152,23 +152,23 @@ class BoostingManager:
         print >> sys.stderr, 'BoostingManager: got new torrent', infohash.encode('hex'), 'from', source_str
 
     def scrape_trackers(self):
-        tracker_to_torrent = defaultdict(list)
+        num_requests = 0
+        tchecking = TorrentChecking.getInstance()
+
+        class FakeGuiTorrent(object):
+            def __init__(self, infohash, trackers):
+                self.infohash = infohash
+                self.trackers = trackers
+
         for infohash, torrent in self.torrents.iteritems():
             if isinstance(torrent['metainfo'], TorrentDef):
-                for tracker in torrent['metainfo'].get_trackers_as_single_tuple():
-                    tracker_to_torrent[tracker].append(infohash)
+                tdef = torrent['metainfo']
+                tchecking.addGuiRequest(FakeGuiTorrent(infohash, tdef.get_trackers_as_single_tuple()))
+                num_requests += 1
 
-        results = defaultdict(lambda: [0, 0])
-        for tracker, infohashes in tracker_to_torrent.iteritems():
-            tracker_status = singleTrackerStatus({'infohash': infohashes[0]}, tracker, lambda t: tracker_to_torrent[t])
-            for infohash, num_peers in tracker_status.iteritems():
-                results[infohash][0] = max(results[infohash][0], num_peers[0])
-                results[infohash][1] = max(results[infohash][1], num_peers[1])
-            print >> sys.stderr, 'BoostingManager: got reply from tracker', tracker_status
+        print >> sys.stderr, 'BoostingManager: requesting tracker scraping for %d torrent(s)' % num_requests
 
-        for infohash, num_peers in results.iteritems():
-            self.torrents[infohash]['num_seeders'] = num_peers[0]
-            self.torrents[infohash]['num_leechers'] = num_peers[1]
+        # Results from this request will get updated in this next call to _update (only works for ChannelSource)
 
         self.tqueue.add_task(self.scrape_trackers, 1800)
 
@@ -186,7 +186,7 @@ class BoostingManager:
 
                 # Add the download to libtorrent.
                 dscfg = DownloadStartupConfig()
-                dscfg.set_dest_dir(CREDIT_MINING_PATH)
+                dscfg.set_dest_dir(self.credit_mining_path)
                 torrent['download'] = self.session.lm.add(torrent['metainfo'], dscfg, pstate=torrent.get('pstate', None), hidden=True, share_mode=True)
                 print >> sys.stderr, 'BoostingManager: downloading torrent', infohash_start.encode('hex')
 
@@ -243,6 +243,7 @@ class ChannelSource(BoostingSource):
     def _load(self, dispersy_cid):
         dispersy = self.session.get_dispersy_instance()
 
+        @call_on_reactor_thread
         def join_community():
             try:
                 self.community = dispersy.get_community(dispersy_cid, True)
@@ -257,7 +258,7 @@ class ChannelSource(BoostingSource):
                         break
 
                 if allchannelcommunity:
-                    self.community = ChannelCommunity.join_community(dispersy, dispersy.get_temporary_member_from_id(dispersy_cid), allchannelcommunity._my_member, True)
+                    self.community = ChannelCommunity.init_community(dispersy, dispersy.get_member(mid=dispersy_cid), allchannelcommunity._my_member, True)
                     print >> sys.stderr, 'ChannelSource: joined channel community', dispersy_cid.encode("HEX")
                     self.tqueue.add_task(get_channel_id, 0, id=self.source)
                 else:
@@ -272,7 +273,7 @@ class ChannelSource(BoostingSource):
                 print >> sys.stderr, 'ChannelSource: could not get channel id, retrying in 10s..'
                 self.tqueue.add_task(get_channel_id, 10, id=self.source)
 
-        dispersy.callback.call(join_community)
+        join_community()
 
     def _update(self):
         if len(self.torrents) < self.max_torrents:
@@ -339,7 +340,7 @@ class RSSFeedSource(BoostingSource):
                 infohash = sha1(item['url']).digest()
                 if infohash not in self.torrents:
                     # Store the torrents as rss-infohash_as_hex.torrent.
-                    torrent_filename = os.path.join(CREDIT_MINING_PATH, 'rss-%s.torrent' % infohash.encode('hex'))
+                    torrent_filename = os.path.join(BoostingManager.get_instance().credit_mining_path, 'rss-%s.torrent' % infohash.encode('hex'))
                     if not os.path.exists(torrent_filename):
                         try:
                             # Download the torrent and create a TorrentDef.

@@ -51,7 +51,7 @@ from Tribler.Main.Dialogs.SaveAs import SaveAs
 from Tribler.Main.vwxGUI.GuiUtility import GUIUtility, forceWxThread
 from Tribler.Main.vwxGUI import DEFAULT_BACKGROUND, SEPARATOR_GREY
 from Tribler.Main.vwxGUI.list import SearchList, ChannelList, \
-    LibraryList, ActivitiesList
+    LibraryList, ActivitiesList, CreditMiningList
 from Tribler.Main.vwxGUI.list_details import SearchInfoPanel, ChannelInfoPanel, \
     LibraryInfoPanel, PlaylistInfoPanel, SelectedchannelInfoPanel, \
     TorrentDetails, LibraryDetails, ChannelDetails, PlaylistDetails

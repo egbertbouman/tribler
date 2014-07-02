@@ -159,12 +159,13 @@ class SwiftProcess:
             data = ic.buffer[:length]
             ic.buffer = ic.buffer[length:]
 
-            try:
-                self.tunnels[session](session, (host, port), data)
-            except KeyError:
+
+            if session not in self.tunnels:
                 if self._warn_missing_endpoint:
                     self._warn_missing_endpoint = False
-                    self._logger.error("sp: Dispersy endpoint is not available")
+                    self._logger.error("missing endpoint for tunnel %s, listening on port %d", session, self.get_listen_port())
+            else:
+                self.tunnels[session](session, (host, port), data)
 
         else:
             roothash = binascii.unhexlify(words[1])

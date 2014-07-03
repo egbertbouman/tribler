@@ -92,7 +92,9 @@ class TunnelExitSocket(DatagramProtocol):
         self.community.tunnel_data_to_origin(self.circuit_id, self.destination, source, data)
 
     def close(self):
-        self.port.stopListening()
+        if self.port:
+            self.port.stopListening()
+            self.port = None
 
 
 class TunnelSettings:
@@ -200,7 +202,7 @@ class TunnelCommunity(Community):
 
     def unload_community(self):
         self.socks_server.stop()
-        for exit_socket in self.exit_sockets.iteritems():
+        for exit_socket in self.exit_sockets.itervalues():
             exit_socket.close()
 
         super(TunnelCommunity, self).unload_community()

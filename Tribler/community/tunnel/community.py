@@ -92,7 +92,7 @@ class TunnelExitSocket(DatagramProtocol):
         self.community.tunnel_data_to_origin(self.circuit_id, self.destination, source, data)
 
     def close(self):
-        self.post.stopListening()
+        self.port.stopListening()
 
 
 class TunnelSettings:

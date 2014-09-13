@@ -2115,8 +2115,11 @@ class CreditMiningList(SizeList):
 
             def OnAddSource(event):
                 dlg = AddBoostingSource(None)
-                if dlg.ShowModal() == wx.ID_OK and dlg.GetValue():
-                    self.boosting_manager.add_source(dlg.GetValue())
+                if dlg.ShowModal() == wx.ID_OK:
+                    source, archive = dlg.GetValue()
+                    if source:
+                        self.boosting_manager.add_source(source)
+                        self.boosting_manager.set_archive(source, archive)
                 dlg.Destroy()
 
             def OnRemoveSource(event):
@@ -2190,7 +2193,7 @@ class CreditMiningList(SizeList):
             if self.statefilter != None:
                 self.list.SetData()  # basically this means execute filter again
 
-        boosting_dslist = [ds for ds in dslist if ds.get_download().get_def().get_def_type() == 'torrent' and ds.get_download().get_share_mode()]
+        boosting_dslist = [ds for ds in dslist if ds.get_download().get_def().get_id() in new_keys]
 
         for item in self.list.items.itervalues():
             ds = item.original_data.ds
@@ -2212,8 +2215,8 @@ class CreditMiningList(SizeList):
                 item.SetExpandedColour(wx.Colour(255, 150, 150))
                 item.SetExpandedAndSelectedColour(wx.Colour(255, 125, 125))
 
-                speed_up = torrent_ds.get_current_speed('up') * 1024 if torrent_ds else 0
-                speed_down = torrent_ds.get_current_speed('down') * 1024 if torrent_ds else 0
+                speed_up = torrent_ds.get_current_speed('up') if torrent_ds else 0
+                speed_down = torrent_ds.get_current_speed('down') if torrent_ds else 0
 
                 item.RefreshColumn(0, self.utility.speed_format(speed_up) + ' / ' + self.utility.speed_format(speed_down))
 

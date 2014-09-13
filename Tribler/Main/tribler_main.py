@@ -96,7 +96,7 @@ from Tribler.Core.simpledefs import UPLOAD, DOWNLOAD, NTFY_MODIFIED, NTFY_INSERT
     STATEDIR_SWIFTRESEED_DIR, \
     dlstatus_strings, \
     DLSTATUS_STOPPED_ON_ERROR, DLSTATUS_DOWNLOADING, \
-    DLSTATUS_SEEDING, DLSTATUS_STOPPED, NTFY_DISPERSY, NTFY_STARTED
+    DLSTATUS_SEEDING, DLSTATUS_STOPPED, NTFY_DISPERSY, NTFY_STARTED, NTFY_SCRAPE
 from Tribler.Core.Swift.SwiftDef import SwiftDef
 from Tribler.Core.Session import Session
 from Tribler.Core.SessionConfig import SessionStartupConfig
@@ -367,6 +367,7 @@ class ABCApp():
         s.add_observer(self.sesscb_ntfy_channelupdates, NTFY_CHANNELCAST, [NTFY_INSERT, NTFY_UPDATE, NTFY_CREATE, NTFY_STATE, NTFY_MODIFIED], cache=10)
         s.add_observer(self.sesscb_ntfy_channelupdates, NTFY_VOTECAST, [NTFY_UPDATE], cache=10)
         s.add_observer(self.sesscb_ntfy_myprefupdates, NTFY_MYPREFERENCES, [NTFY_INSERT, NTFY_UPDATE, NTFY_DELETE])
+        s.add_observer(self.sesscb_ntfy_torrentscrapes, NTFY_TORRENTS, [NTFY_SCRAPE])
         s.add_observer(self.sesscb_ntfy_torrentupdates, NTFY_TORRENTS, [NTFY_UPDATE, NTFY_INSERT], cache=10)
         s.add_observer(self.sesscb_ntfy_playlistupdates, NTFY_PLAYLISTS, [NTFY_INSERT, NTFY_UPDATE])
         s.add_observer(self.sesscb_ntfy_commentupdates, NTFY_COMMENTS, [NTFY_INSERT, NTFY_DELETE])
@@ -821,6 +822,12 @@ class ABCApp():
                     self.torrentfeed.addCallback(objectID, self.guiUtility.torrentsearch_manager.createMetadataModificationFromDef)
 
                 self.frame.managechannel.channelUpdated(objectID, created=changeType == NTFY_CREATE, modified=changeType == NTFY_MODIFIED)
+
+    @forceWxThread
+    def sesscb_ntfy_torrentscrapes(self, subject, changeType, objectID, *args):
+        if self._frame_and_ready() and self.frame.creditmininglist:
+            manager = self.frame.creditmininglist.GetManager()
+            manager.torrentsUpdated([objectID])
 
     @forceWxThread
     def sesscb_ntfy_torrentupdates(self, events):

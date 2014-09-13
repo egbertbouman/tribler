@@ -16,15 +16,14 @@ from collections import defaultdict
 from Tribler.Core.Libtorrent.LibtorrentMgr import LibtorrentMgr
 from Tribler.community.allchannel.community import AllChannelCommunity
 from Tribler.community.channel.community import ChannelCommunity
-from Tribler.Core.simpledefs import NTFY_TORRENTS, NTFY_UPDATE, NTFY_INSERT
+from Tribler.Core.simpledefs import NTFY_TORRENTS, NTFY_UPDATE, NTFY_INSERT, DLSTATUS_SEEDING, NTFY_SCRAPE
 from Tribler.Core.TorrentDef import TorrentDef, TorrentDefNoMetainfo
 from Tribler.Core.DownloadConfig import DownloadStartupConfig
 from Tribler.Main.globals import DefaultDownloadStartupConfig
 from Tribler.Utilities.TimedTaskQueue import TimedTaskQueue
-from Tribler.TrackerChecking.TorrentChecking import TorrentChecking
 from Tribler.dispersy.util import call_on_reactor_thread
-
-DEBUG = False
+from Tribler.Utilities.scraper import scrape
+from Tribler.Core.CacheDB.Notifier import Notifier
 
 
 class BoostingManager:
@@ -36,6 +35,7 @@ class BoostingManager:
 
         self.session = session
         self.utility = utility
+        self.notifier = Notifier.getInstance()
         self.ltmgr = LibtorrentMgr.getInstance()
         self.tqueue = TimedTaskQueue("BoostingManager")
         self.credit_mining_path = os.path.join(DefaultDownloadStartupConfig.getInstance().get_dest_dir(), "credit_mining")
@@ -111,12 +111,13 @@ class BoostingManager:
     def add_source(self, source):
         if source not in self.boosting_sources:
             error = False
+            args = (self.session, self.tqueue, source, self.source_interval, self.max_torrents_per_source, self.on_torrent_insert)
             if os.path.isdir(source):
-                self.boosting_sources[source] = DirectorySource(self.session, self.tqueue, source, self.source_interval, self.max_torrents_per_source, self.on_torrent_insert)
+                self.boosting_sources[source] = DirectorySource(*args)
             elif source.startswith('http://'):
-                self.boosting_sources[source] = RSSFeedSource(self.session, self.tqueue, source, self.source_interval, self.max_torrents_per_source, self.on_torrent_insert)
+                self.boosting_sources[source] = RSSFeedSource(*args)
             elif len(source) == 20:
-                self.boosting_sources[source] = ChannelSource(self.session, self.tqueue, source, self.source_interval, self.max_torrents_per_source, self.on_torrent_insert)
+                self.boosting_sources[source] = ChannelSource(*args)
             else:
                 print >> sys.stderr, 'BoostingManager: got unknown source', source
                 error = True
@@ -141,6 +142,10 @@ class BoostingManager:
             source_str = 'unknown source'
         torrent['source'] = source_str
 
+        if self.boosting_sources[source].archive:
+            torrent['preload'] = True
+            torrent['prio'] = 100
+
         # Preload the TorrentDef.
         if torrent['metainfo']:
             if not isinstance(torrent['metainfo'], TorrentDef):
@@ -153,50 +158,90 @@ class BoostingManager:
 
     def scrape_trackers(self):
         num_requests = 0
-        tchecking = TorrentChecking.getInstance()
-
-        class FakeGuiTorrent(object):
-            def __init__(self, infohash, trackers):
-                self.infohash = infohash
-                self.trackers = trackers
+        trackers = defaultdict(list)
 
         for infohash, torrent in self.torrents.iteritems():
             if isinstance(torrent['metainfo'], TorrentDef):
                 tdef = torrent['metainfo']
-                tchecking.addGuiRequest(FakeGuiTorrent(infohash, tdef.get_trackers_as_single_tuple()))
+                for tracker in tdef.get_trackers_as_single_tuple():
+                    trackers[tracker].append(infohash)
                 num_requests += 1
 
-        print >> sys.stderr, 'BoostingManager: requesting tracker scraping for %d torrent(s)' % num_requests
+        results = defaultdict(lambda: [0, 0])
+        for tracker, infohashes in trackers.iteritems():
+            try:
+                reply = scrape(tracker, infohashes)
+                print >> sys.stderr, 'BoostingManager: got reply from tracker', reply
+            except:
+                print >> sys.stderr, 'BoostingManager: did not get reply from tracker'
+            else:
+                for infohash, info in reply.iteritems():
+                    results[infohash][0] = max(results[infohash][0], info['seeds'])
+                    results[infohash][1] = max(results[infohash][1], info['peers'])
 
-        # Results from this request will get updated in this next call to _update (only works for ChannelSource)
+        for infohash, num_peers in results.iteritems():
+            self.torrents[infohash]['num_seeders'] = num_peers[0]
+            self.torrents[infohash]['num_leechers'] = num_peers[1]
+            self.notifier.notify(NTFY_TORRENTS, NTFY_SCRAPE, infohash)
+
+        print >> sys.stderr, 'BoostingManager: finished tracker scraping for %d torrent(s)' % num_requests
 
         self.tqueue.add_task(self.scrape_trackers, 1800)
 
-    def _select_torrent(self):
-        if self.policy and self.torrents:
+    def set_archive(self, source, enable):
+        if source in self.boosting_sources:
+            self.boosting_sources[source].archive = enable
+            print >> sys.stderr, 'BoostingManager: set archive mode for', source, 'to', str(enable)
+        else:
+            print >> sys.stderr, 'BoostingManager: could not set archive mode for', source
 
-            print >> sys.stderr, 'BoostingManager: selecting from', len(self.torrents), 'torrents'
+    def start_download(self, infohash, torrent):
+        dscfg = DownloadStartupConfig()
+        dscfg.set_dest_dir(self.credit_mining_path)
+
+        preload = torrent.get('preload', False)
+        torrent['download'] = self.session.lm.add(torrent['metainfo'], dscfg, pstate=torrent.get('pstate', None), hidden=True, share_mode=not preload)
+        # TODO: fix this
+        # torrent['download'].handle.set_priority(torrent.get('prio', 1))
+        print >> sys.stderr, 'BoostingManager: downloading torrent', infohash.encode('hex'), '(preload=%s)' % preload
+
+    def stop_download(self, infohash, torrent):
+        preload = torrent.pop('preload', False)
+        download = torrent.pop('download')
+        torrent['pstate'] = {'engineresumedata': download.handle.write_resume_data()}
+        self.session.remove_download(download)
+        print >> sys.stderr, 'BoostingManager: removing torrent', infohash.encode('hex'), '(preload=%s)' % preload
+
+    def _select_torrent(self):
+        torrents = {}
+        for infohash, torrent in self.torrents.iteritems():
+            if torrent.get('preload', False):
+                if not torrent.has_key('download'):
+                    self.start_download(infohash, torrent)
+                elif torrent['download'].get_status() == DLSTATUS_SEEDING:
+                    self.stop_download(infohash, torrent)
+            else:
+                torrents[infohash] = torrent
+
+        if self.policy and torrents:
+
+            print >> sys.stderr, 'BoostingManager: selecting from', len(torrents), 'torrents'
 
             # Determine which torrent to start and which to stop.
-            infohash_start, infohash_stop = self.policy.apply(self.torrents, self.max_torrents_active)
+            infohash_start, infohash_stop = self.policy.apply(torrents, self.max_torrents_active)
 
             # Start a torrent.
             if infohash_start:
-                torrent = self.torrents[infohash_start]
+                torrent = torrents[infohash_start]
 
                 # Add the download to libtorrent.
-                dscfg = DownloadStartupConfig()
-                dscfg.set_dest_dir(self.credit_mining_path)
-                torrent['download'] = self.session.lm.add(torrent['metainfo'], dscfg, pstate=torrent.get('pstate', None), hidden=True, share_mode=True)
-                print >> sys.stderr, 'BoostingManager: downloading torrent', infohash_start.encode('hex')
+                self.start_download(infohash_start, torrent)
 
             # Stop a torrent.
             if infohash_stop:
-                torrent = self.torrents[infohash_stop]
-                download = torrent.pop('download')
-                torrent['pstate'] = {'engineresumedata': download.handle.write_resume_data()}
-                self.session.remove_download(download)
-                print >> sys.stderr, 'BoostingManager: removing torrent', infohash_stop.encode('hex')
+                torrent = torrents[infohash_stop]
+
+                self.stop_download(infohash_stop, torrent)
 
         self.tqueue.add_task(self._select_torrent, self.swarm_interval)
 
@@ -212,6 +257,7 @@ class BoostingSource:
         self.interval = interval
         self.max_torrents = max_torrents
         self.callback = callback
+        self.archive = False
 
     def kill_tasks(self):
         self.tqueue.remove_task(self.source)

@@ -10,7 +10,7 @@ from Tribler.Policies.BoostingManager import BoostingManager
 class AddBoostingSource(wx.Dialog):
 
     def __init__(self, parent):
-        wx.Dialog.__init__(self, parent, -1, 'Add boosting source', size=(475, 160), name="AddBoostingSourceDialog")
+        wx.Dialog.__init__(self, parent, -1, 'Add boosting source', size=(475, 175), name="AddBoostingSourceDialog")
 
         self.guiutility = GUIUtility.getInstance()
         self.channels = []
@@ -23,6 +23,7 @@ class AddBoostingSource(wx.Dialog):
         self.rss_feed_radio = wx.RadioButton(self, -1, 'RSS feed:')
         self.rss_feed_edit = wx.TextCtrl(self, -1)
         self.rss_feed_edit.Bind(wx.EVT_TEXT, lambda evt: self.rss_feed_radio.SetValue(True))
+        self.archive_check = wx.CheckBox(self, -1, "Archive mode")
         ok_btn = wx.Button(self, -1, "OK")
         ok_btn.Bind(wx.EVT_BUTTON, self.OnOK)
         cancel_btn = wx.Button(self, -1, "Cancel")
@@ -40,6 +41,8 @@ class AddBoostingSource(wx.Dialog):
         vSizer = wx.BoxSizer(wx.VERTICAL)
         vSizer.Add(text, 0, wx.EXPAND | wx.ALL, 5)
         vSizer.Add(sourceGrid, 0, wx.EXPAND | wx.ALL, 5)
+        vSizer.AddSpacer((-1, 5))
+        vSizer.Add(self.archive_check, 0, wx.LEFT | wx.RIGHT, 10)
         vSizer.AddStretchSpacer()
         vSizer.Add(btnSizer, 0, wx.EXPAND | wx.ALL, 5)
         self.SetSizer(vSizer)
@@ -67,7 +70,7 @@ class AddBoostingSource(wx.Dialog):
         self.EndModal(wx.ID_CANCEL)
 
     def GetValue(self):
-        return self.source
+        return self.source, self.archive_check.GetValue()
 
 
 class RemoveBoostingSource(wx.Dialog):

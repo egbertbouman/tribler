@@ -2232,8 +2232,8 @@ class CreditMiningList(SizeList):
         self.b_up.SetLabel('Total bytes up: ' + self.utility.size_format(sum([stat['total_up'] for stat in seeding_stats])))
         self.b_down.SetLabel('Total bytes down: ' + self.utility.size_format(sum([stat['total_down'] for stat in seeding_stats])))
 
-        self.s_up.SetLabel('Total speed up: ' + self.utility.speed_format(sum([ds.get_current_speed('up') * 1024 for ds in boosting_dslist])))
-        self.s_down.SetLabel('Total speed down: ' + self.utility.speed_format(sum([ds.get_current_speed('down') * 1024 for ds in boosting_dslist])))
+        self.s_up.SetLabel('Total speed up: ' + self.utility.speed_format(sum([ds.get_current_speed('up') for ds in boosting_dslist])))
+        self.s_down.SetLabel('Total speed down: ' + self.utility.speed_format(sum([ds.get_current_speed('down') for ds in boosting_dslist])))
 
         if newFilter:
             self.newfilter = False

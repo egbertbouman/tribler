@@ -1057,6 +1057,10 @@ class LibtorrentDownloadImpl(DownloadConfigInterface):
         """
         self.handle.connect_peer(addr, 0)
 
+    @waitForHandleAndSynchronize()
+    def set_priority(self, prio):
+        self.handle.set_priority(prio)
+
     @waitForHandleAndSynchronize(True)
     def dlconfig_changed_callback(self, section, name, new_value, old_value):
         if section == 'downloadconfig' and name == 'max_upload_rate':

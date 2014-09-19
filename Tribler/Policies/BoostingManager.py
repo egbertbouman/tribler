@@ -194,6 +194,7 @@ class BoostingManager:
         if source in self.boosting_sources:
             self.boosting_sources[source].archive = enable
             print >> sys.stderr, 'BoostingManager: set archive mode for', source, 'to', str(enable)
+            # TODO: update torrents
         else:
             print >> sys.stderr, 'BoostingManager: could not set archive mode for', source
 
@@ -203,8 +204,7 @@ class BoostingManager:
 
         preload = torrent.get('preload', False)
         torrent['download'] = self.session.lm.add(torrent['metainfo'], dscfg, pstate=torrent.get('pstate', None), hidden=True, share_mode=not preload)
-        # TODO: fix this
-        # torrent['download'].handle.set_priority(torrent.get('prio', 1))
+        torrent['download'].set_priority(torrent.get('prio', 1))
         print >> sys.stderr, 'BoostingManager: downloading torrent', infohash.encode('hex'), '(preload=%s)' % preload
 
     def stop_download(self, infohash, torrent):

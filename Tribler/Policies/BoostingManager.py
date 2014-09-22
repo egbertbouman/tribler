@@ -178,8 +178,9 @@ class BoostingManager:
                 print >> sys.stderr, 'BoostingManager: did not get reply from tracker'
             else:
                 for infohash, info in reply.iteritems():
-                    results[infohash][0] = max(results[infohash][0], info['seeds'])
-                    results[infohash][1] = max(results[infohash][1], info['peers'])
+                    if info['seeders'] > results[infohash[0]]:
+                        results[infohash][0] = info['seeds']
+                        results[infohash][1] = info['peers']
 
         for infohash, num_peers in results.iteritems():
             self.torrents[infohash]['num_seeders'] = num_peers[0]

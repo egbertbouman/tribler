@@ -177,19 +177,26 @@ class StatsResponsePayload(Payload):
 
 class EstablishIntroPayload(Payload):
     class Implementation(Payload.Implementation):
-        def __init__(self, meta, identifier, service_key, infohash):
+        def __init__(self, meta, circuit_id, identifier, service_key, infohash):
+            assert isinstance(circuit_id, (int, long)), type(circuit_id)
             assert isinstance(identifier, int), type(identifier)
             assert isinstance(service_key, basestring), type(service_key)
             assert isinstance(infohash, basestring), type(infohash)
 
             super(EstablishIntroPayload.Implementation, self).__init__(meta)
+            self._circuit_id = circuit_id
             self._identifier = identifier
             self._service_key = service_key
             self._infohash = infohash
 
         @property
+        def circuit_id(self):
+            return self._circuit_id
+
+        @property
         def identifier(self):
             return self._identifier
+
 
         @property
         def service_key(self):
@@ -202,11 +209,17 @@ class EstablishIntroPayload(Payload):
 
 class IntroEstablishedPayload(Payload):
     class Implementation(Payload.Implementation):
-        def __init__(self, meta, identifier):
+        def __init__(self, meta, circuit_id, identifier):
+            assert isinstance(circuit_id, (int, long)), type(circuit_id)
             assert isinstance(identifier, int), type(identifier)
 
             super(IntroEstablishedPayload.Implementation, self).__init__(meta)
+            self._circuit_id = circuit_id
             self._identifier = identifier
+
+        @property
+        def circuit_id(self):
+            return self._circuit_id
 
         @property
         def identifier(self):
@@ -215,13 +228,19 @@ class IntroEstablishedPayload(Payload):
 
 class EstablishRendezvousPayload(Payload):
     class Implementation(Payload.Implementation):
-        def __init__(self, meta, identifier, cookie):
+        def __init__(self, meta, circuit_id, identifier, cookie):
+            assert isinstance(circuit_id, (int, long)), type(circuit_id)
             assert isinstance(identifier, int), type(identifier)
             assert isinstance(cookie, basestring), type(cookie)
 
             super(EstablishRendezvousPayload.Implementation, self).__init__(meta)
+            self._circuit_id = circuit_id
             self._identifier = identifier
             self._cookie = cookie
+
+        @property
+        def circuit_id(self):
+            return self._circuit_id
 
         @property
         def identifier(self):
@@ -234,11 +253,17 @@ class EstablishRendezvousPayload(Payload):
 
 class RendezvousEstablishedPayload(Payload):
     class Implementation(Payload.Implementation):
-        def __init__(self, meta, identifier):
+        def __init__(self, meta, circuit_id, identifier):
+            assert isinstance(circuit_id, (int, long)), type(circuit_id)
             assert isinstance(identifier, int), type(identifier)
 
             super(RendezvousEstablishedPayload.Implementation, self).__init__(meta)
+            self._circuit_id = circuit_id
             self._identifier = identifier
+
+        @property
+        def circuit_id(self):
+            return self._circuit_id
 
         @property
         def identifier(self):
@@ -247,13 +272,19 @@ class RendezvousEstablishedPayload(Payload):
 
 class Intro1Payload(Payload):
     class Implementation(Payload.Implementation):
-        def __init__(self, meta, identifier, key):
+        def __init__(self, meta, circuit_id, identifier, key):
+            assert isinstance(circuit_id, (int, long)), type(circuit_id)
             assert isinstance(identifier, int), type(identifier)
             assert isinstance(key, basestring), type(key)
 
             super(Intro1Payload.Implementation, self).__init__(meta)
+            self._circuit_id = circuit_id
             self._identifier = identifier
             self._key = key
+
+        @property
+        def circuit_id(self):
+            return self._circuit_id
 
         @property
         def identifier(self):
@@ -266,13 +297,19 @@ class Intro1Payload(Payload):
 
 class Intro2Payload(Payload):
     class Implementation(Payload.Implementation):
-        def __init__(self, meta, identifier, key):
+        def __init__(self, meta, circuit_id, identifier, key):
+            assert isinstance(circuit_id, (int, long)), type(circuit_id)
             assert isinstance(identifier, int), type(identifier)
             assert isinstance(key, basestring), type(key)
 
             super(Intro2Payload.Implementation, self).__init__(meta)
+            self._circuit_id = circuit_id
             self._identifier = identifier
             self._key = key
+
+        @property
+        def circuit_id(self):
+            return self._circuit_id
 
         @property
         def identifier(self):
@@ -285,15 +322,21 @@ class Intro2Payload(Payload):
 
 class Rendezvous1Payload(Payload):
     class Implementation(Payload.Implementation):
-        def __init__(self, meta, identifier, key, cookie):
+        def __init__(self, meta, circuit_id, identifier, key, cookie):
+            assert isinstance(circuit_id, (int, long)), type(circuit_id)
             assert isinstance(identifier, int), type(identifier)
             assert isinstance(key, basestring), type(key)
             assert isinstance(cookie, basestring), type(cookie)
 
             super(Rendezvous1Payload.Implementation, self).__init__(meta)
+            self._circuit_id = circuit_id
             self._identifier = identifier
             self._key = key
             self._cookie = cookie
+
+        @property
+        def circuit_id(self):
+            return self._circuit_id
 
         @property
         def identifier(self):
@@ -310,13 +353,19 @@ class Rendezvous1Payload(Payload):
 
 class Rendezvous2Payload(Payload):
     class Implementation(Payload.Implementation):
-        def __init__(self, meta, identifier, key):
+        def __init__(self, meta, circuit_id, identifier, key):
+            assert isinstance(circuit_id, (int, long)), type(circuit_id)
             assert isinstance(identifier, int), type(identifier)
             assert isinstance(key, basestring), type(key)
 
             super(Rendezvous2Payload.Implementation, self).__init__(meta)
+            self._circuit_id = circuit_id
             self._identifier = identifier
             self._key = key
+
+        @property
+        def circuit_id(self):
+            return self._circuit_id
 
         @property
         def identifier(self):

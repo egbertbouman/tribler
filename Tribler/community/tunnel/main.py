@@ -216,6 +216,10 @@ class LineHandler(LineReceiver):
                                                              len(circuit.hops),
                                                              circuit.bytes_down / 1024.0 / 1024.0,
                                                              circuit.bytes_up / 1024.0 / 1024.0)
+        elif line == 'i':
+            print "Create introduction point"
+            anon_tunnel.community.create_introduction_point()
+
         elif line == 'q':
             anon_tunnel.stop()
             os._exit(0)

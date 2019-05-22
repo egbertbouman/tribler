@@ -117,7 +117,7 @@ class TestSpecificChannelEndpoint(BaseTestMetadataEndpoint):
         Test whether an error is returned if we try to subscribe to a channel with the REST API and missing parameters
         """
         self.should_check_equality = False
-        channel_pk = hexlify(self.session.lm.mds.ChannelNode._my_key.pub().key_to_bin()[10:])
+        channel_pk = hexlify(self.session.lm.mds.ChannelNode._my_key.pub().key_to_bin()[10:]).decode('utf-8')
         return self.do_request('metadata/channels/%s/0' % channel_pk, expected_code=400, request_type='POST')
 
     def test_subscribe_no_channel(self):
@@ -134,7 +134,7 @@ class TestSpecificChannelEndpoint(BaseTestMetadataEndpoint):
         """
         self.should_check_equality = False
         post_params = {'subscribe': '1'}
-        channel_pk = hexlify(self.session.lm.mds.ChannelNode._my_key.pub().key_to_bin()[10:])
+        channel_pk = hexlify(self.session.lm.mds.ChannelNode._my_key.pub().key_to_bin()[10:]).decode('utf-8')
         return self.do_request('metadata/channels/%s/0' % channel_pk, expected_code=200,
                                request_type='POST', post_data=post_params)
 
@@ -145,7 +145,7 @@ class TestSpecificChannelEndpoint(BaseTestMetadataEndpoint):
 
         self.should_check_equality = False
         post_params = {'subscribe': '0'}
-        channel_pk = hexlify(channel.public_key)
+        channel_pk = hexlify(channel.public_key).decode('utf-8')
 
         def async_sleep(secs):
             return deferLater(reactor, secs, lambda: None)
@@ -179,7 +179,7 @@ class TestSpecificChannelTorrentsEndpoint(BaseTestMetadataEndpoint):
             self.assertEqual(len(json_dict['results']), 5)
 
         self.should_check_equality = False
-        channel_pk = hexlify(self.session.lm.mds.ChannelNode._my_key.pub().key_to_bin()[10:])
+        channel_pk = hexlify(self.session.lm.mds.ChannelNode._my_key.pub().key_to_bin()[10:]).decode('utf-8')
         return self.do_request('metadata/channels/%s/0/torrents' % channel_pk, expected_code=200).addCallback(
             on_response)
 
@@ -189,7 +189,7 @@ class TestSpecificChannelTorrentsCountEndpoint(BaseTestMetadataEndpoint):
     def test_get_torrents_count(self):
         # Test getting total count of results
         self.should_check_equality = False
-        channel_pk = hexlify(self.session.lm.mds.ChannelNode._my_key.pub().key_to_bin()[10:])
+        channel_pk = hexlify(self.session.lm.mds.ChannelNode._my_key.pub().key_to_bin()[10:]).decode('utf-8')
         result = yield self.do_request('metadata/channels/%s/0/torrents/count' % channel_pk,
                                        expected_code=200)
         json_dict = json.twisted_loads(result)
@@ -232,7 +232,7 @@ class TestSpecificTorrentEndpoint(BaseTestMetadataEndpoint):
         Test whether we can successfully query information about a torrent with the REST API
         """
         self.should_check_equality = False
-        return self.do_request('metadata/torrents/%s' % hexlify(self.infohashes[0]), expected_code=200)
+        return self.do_request('metadata/torrents/%s' % hexlify(self.infohashes[0]).decode('utf-8'), expected_code=200)
 
 
 class TestRandomTorrentsEndpoint(BaseTestMetadataEndpoint):
@@ -290,7 +290,7 @@ class TestTorrentHealthEndpoint(AbstractApiTest):
         """
         Test the endpoint to fetch the health of a chant-managed, infohash-only torrent
         """
-        infohash = 'a' * 20
+        infohash = b'a' * 20
         tracker_url = 'udp://localhost:%s/announce' % self.udp_port
         self.udp_tracker.tracker_info.add_info_about_infohash(infohash, 12, 11, 1)
 
@@ -302,7 +302,7 @@ class TestTorrentHealthEndpoint(AbstractApiTest):
                                                 size=42,
                                                 tracker_info=tracker_url,
                                                 health=torrent_state)
-        url = 'metadata/torrents/%s/health?timeout=10&refresh=1' % hexlify(infohash)
+        url = 'metadata/torrents/%s/health?timeout=10&refresh=1' % hexlify(infohash).decode('utf-8')
         self.should_check_equality = False
 
         # Initialize the torrent checker
@@ -321,7 +321,7 @@ class TestTorrentHealthEndpoint(AbstractApiTest):
         self.session.lm.ltmgr.get_metainfo = lambda _, **__: succeed(None)
         self.session.lm.ltmgr.dht_health_manager = MockObject()
         dht_health_dict = {
-            "infohash": hexlify(infohash),
+            "infohash": hexlify(infohash).decode('utf-8'),
             "seeders": 1,
             "leechers": 2
         }

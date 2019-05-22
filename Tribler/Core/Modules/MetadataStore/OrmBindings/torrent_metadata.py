@@ -88,7 +88,7 @@ def define_binding(db):
 
         def get_magnet(self):
             return ("magnet:?xt=urn:btih:%s&dn=%s" %
-                    (hexlify(str(self.infohash)), self.title)) + \
+                    (hexlify(self.infohash).decode('utf-8'), self.title)) + \
                    ("&tr=%s" % self.tracker_info if self.tracker_info else "")
 
         @classmethod
@@ -227,9 +227,9 @@ def define_binding(db):
             epoch = datetime.utcfromtimestamp(0)
             simple_dict = {
                 "id": self.id_,
-                "public_key": hexlify(self.public_key),
+                "public_key": hexlify(self.public_key).decode('utf-8'),
                 "name": self.title,
-                "infohash": hexlify(self.infohash),
+                "infohash": hexlify(self.infohash).decode('utf-8'),
                 "size": self.size,
                 "category": self.tags,
                 "num_seeders": self.health.seeders,

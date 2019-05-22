@@ -145,7 +145,7 @@ class GigaChannelManager(TaskManager):
             try:
                 if not self.session.has_download(str(channel.infohash)):
                     self._logger.info("Downloading new channel version %s ver %i->%i",
-                                      hexlify(str(channel.public_key)),
+                                      hexlify(channel.public_key).decode('utf-8'),
                                       channel.local_version, channel.timestamp)
                     self.download_channel(channel)
                 elif self.session.get_download(str(channel.infohash)).get_state().get_status() == DLSTATUS_SEEDING:
@@ -155,7 +155,7 @@ class GigaChannelManager(TaskManager):
                     self.channels_processing_queue[channel.infohash] = (PROCESS_CHANNEL_DIR, channel)
             except Exception:
                 self._logger.exception("Error when tried to download a newer version of channel %s",
-                                       hexlify(channel.public_key))
+                                       hexlify(channel.public_key).decode('utf-8'))
 
     # TODO: finish this routine
     # This thing should check if the files in the torrent we're going to delete are used in another torrent for
@@ -201,8 +201,8 @@ class GigaChannelManager(TaskManager):
         d, remove_content = to_remove
         deferred = self.session.remove_download(d, remove_content=remove_content)
         deferred.addCallbacks(_on_success, _on_failure)
-        self.register_task(u'remove_channel' + d.tdef.get_name_utf8() + u'-' + hexlify(d.tdef.get_infohash()),
-                           deferred)
+        self.register_task(u'remove_channel' + d.tdef.get_name_utf8() + u'-' +
+                           hexlify(d.tdef.get_infohash()).decode('utf-8'), deferred)
 
         """
         def _on_torrents_removed(torrent):
@@ -222,7 +222,7 @@ class GigaChannelManager(TaskManager):
         dcfg = DownloadStartupConfig(state_dir=self.session.config.get_state_dir())
         dcfg.set_dest_dir(self.session.lm.mds.channels_dir)
         dcfg.set_channel_download(True)
-        tdef = TorrentDefNoMetainfo(infohash=str(channel.infohash), name=channel.dir_name)
+        tdef = TorrentDefNoMetainfo(infohash=channel.infohash, name=channel.dir_name)
         download = self.session.start_download_from_tdef(tdef, dcfg)
 
         def _add_channel_to_processing_queue(_):

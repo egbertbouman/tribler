@@ -3,7 +3,7 @@ A wrapper around a libtorrent download.
 
 Author(s): Arno Bakker, Egbert Bouman
 """
-from __future__ import absolute_import
+from __future__ import absolute_import, division
 
 import base64
 import logging
@@ -17,7 +17,6 @@ from threading import RLock
 import libtorrent as lt
 
 import six
-from six.moves import xrange
 
 from twisted.internet import reactor
 from twisted.internet.defer import CancelledError, Deferred, succeed
@@ -52,7 +51,7 @@ class VODFile(object):
         self._download = d
 
         pieces = self._download.tdef.get_pieces()
-        self.pieces = [pieces[x:x + 20] for x in xrange(0, len(pieces), 20)]
+        self.pieces = [pieces[x:x + 20] for x in list(range(0, len(pieces), 20))]
         self.piecesize = self._download.tdef.get_piece_length()
 
         self.startpiece = get_info_from_handle(self._download.handle).map_file(
@@ -397,7 +396,7 @@ class LibtorrentDownloadImpl(DownloadConfigInterface, TaskManager):
                     pieces_have += 1
                 elif consecutive:
                     break
-            return float(pieces_have) / pieces_all
+            return pieces_have / pieces_all
         return 0.0
 
     @checkHandleAndSynchronize('')
@@ -434,7 +433,7 @@ class LibtorrentDownloadImpl(DownloadConfigInterface, TaskManager):
                 startpiece = max(startpiece, 0)
                 endpiece = min(endpiece, torrent_info.num_pieces())
 
-                pieces += range(startpiece, endpiece)
+                pieces += list(range(startpiece, endpiece))
             else:
                 self._logger.info("LibtorrentDownloadImpl: could not get progress for incorrect fileindex")
 
@@ -480,7 +479,7 @@ class LibtorrentDownloadImpl(DownloadConfigInterface, TaskManager):
                 startpiece = max(startpiece, 0)
                 endpiece = min(endpiece, torrent_info.num_pieces())
 
-                pieces += range(startpiece, endpiece)
+                pieces += list(range(startpiece, endpiece))
             else:
                 self._logger.info("LibtorrentDownloadImpl: could not set priority for incorrect fileindex")
 
@@ -599,7 +598,7 @@ class LibtorrentDownloadImpl(DownloadConfigInterface, TaskManager):
         self.checkpoint()
 
     def on_file_renamed_alert(self, alert):
-        unwanteddir_abs = os.path.join(self.get_save_path().decode('utf-8'), self.unwanted_directory_name)
+        unwanteddir_abs = os.path.join(self.get_save_path(), self.unwanted_directory_name)
         if os.path.exists(unwanteddir_abs) and all(self.handle.file_priorities()):
             shutil.rmtree(unwanteddir_abs, ignore_errors=True)
 
@@ -716,7 +715,7 @@ class LibtorrentDownloadImpl(DownloadConfigInterface, TaskManager):
             else:
                 DownloadConfigInterface.set_selected_files(self, selected_files)
 
-            unwanteddir_abs = os.path.join(self.get_save_path().decode('utf-8'), self.unwanted_directory_name)
+            unwanteddir_abs = os.path.join(self.get_save_path(), self.unwanted_directory_name)
             torrent_info = get_info_from_handle(self.handle)
             if not torrent_info or not hasattr(torrent_info, 'files'):
                 self._logger.error("File info not available for torrent [%s]", self.correctedinfoname)
@@ -734,13 +733,13 @@ class LibtorrentDownloadImpl(DownloadConfigInterface, TaskManager):
                 else:
                     filepriorities.append(0)
                     new_path = os.path.join(self.unwanted_directory_name,
-                                            '%s%d' % (hexlify(self.tdef.get_infohash()), index))
+                                            '%s%d' % (hexlify(self.tdef.get_infohash().encode()), index))
 
                 # as from libtorrent 1.0, files returning file_storage (lazy-iterable)
                 if hasattr(lt, 'file_storage') and isinstance(torrent_storage, lt.file_storage):
-                    cur_path = torrent_storage.at(index).path.decode('utf-8')
+                    cur_path = six.text_type(torrent_storage.at(index).path)
                 else:
-                    cur_path = torrent_storage[index].path.decode('utf-8')
+                    cur_path = six.text_type(torrent_storage[index].path)
 
                 if cur_path != new_path:
                     if not os.path.exists(unwanteddir_abs) and self.unwanted_directory_name in new_path:
@@ -779,7 +778,7 @@ class LibtorrentDownloadImpl(DownloadConfigInterface, TaskManager):
             # self.handle.status().save_path to query the save path of a torrent. However, this attribute
             # is only included in libtorrent 1.0.9+
             status = self.handle.status()
-            return status.save_path if hasattr(status, 'save_path') else self.handle.save_path()
+            return six.text_type(status.save_path if hasattr(status, 'save_path') else self.handle.save_path())
 
     @checkHandleAndSynchronize()
     def force_recheck(self):

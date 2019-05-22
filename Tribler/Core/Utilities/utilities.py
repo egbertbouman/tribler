@@ -110,23 +110,23 @@ def parse_magnetlink(url):
     logger.debug("parse_magnetlink() %s", url)
 
     schema, netloc, path, query, fragment = urlsplit(url)
-    if schema == "magnet":
+    if schema == b"magnet":
         # magnet url's do not conform to regular url syntax (they
         # do not have a netloc.)  This causes path to contain the
         # query part.
-        if "?" in path:
-            pre, post = path.split("?", 1)
+        if b"?" in path:
+            pre, post = path.split(b"?", 1)
             if query:
-                query = "&".join((post, query))
+                query = b"&".join((post, query))
             else:
                 query = post
 
         for key, value in parse_qsl(query):
-            if key == "dn":
+            if key == b"dn":
                 # convert to Unicode
                 dn = value.decode() if not isinstance(value, six.text_type) else value
 
-            elif key == "xt" and value.startswith("urn:btih:"):
+            elif key == b"xt" and value.startswith(b"urn:btih:"):
                 # vliegendhart: Adding support for base32 in magnet links (BEP 0009)
                 encoded_infohash = value[9:49]
                 if len(encoded_infohash) == 32:
@@ -134,7 +134,7 @@ def parse_magnetlink(url):
                 else:
                     xt = binascii.unhexlify(encoded_infohash)
 
-            elif key == "tr":
+            elif key == b"tr":
                 trs.append(value)
 
         logger.debug("parse_magnetlink() NAME: %s", dn)

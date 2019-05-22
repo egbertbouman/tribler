@@ -92,7 +92,7 @@ class TestLibtorrentMgr(AbstractServer):
         Testing the metainfo fetching method when the DHT is not ready
         """
         self.ltmgr.initialize()
-        self.assertFalse(self.ltmgr.get_metainfo("a" * 20, None))
+        self.assertFalse(self.ltmgr.get_metainfo(b"a" * 20, None))
 
     @trial_timeout(20)
     def test_get_metainfo(self):
@@ -102,8 +102,8 @@ class TestLibtorrentMgr(AbstractServer):
         test_deferred = Deferred()
 
         def metainfo_cb(metainfo):
-            self.assertEqual(metainfo, {'info': {'pieces': ['a']}, 'leechers': 0,
-                                        'nodes': [], 'seeders': 0})
+            self.assertEqual(metainfo, {b'info': {b'pieces': [b'a']}, b'leechers': 0,
+                                        b'nodes': [], b'seeders': 0})
             test_deferred.callback(None)
 
         infohash = "a" * 20
@@ -136,12 +136,12 @@ class TestLibtorrentMgr(AbstractServer):
         test_deferred = Deferred()
 
         def metainfo_cb(metainfo):
-            self.assertEqual(metainfo, "test")
+            self.assertEqual(metainfo, b"test")
             test_deferred.callback(None)
 
         self.ltmgr.initialize()
-        self.ltmgr.metainfo_cache[hexlify("a" * 20)] = {'meta_info': 'test'}
-        self.ltmgr.get_metainfo("a" * 20, metainfo_cb)
+        self.ltmgr.metainfo_cache[hexlify(b"a" * 20)] = {b'meta_info': b'test'}
+        self.ltmgr.get_metainfo(b"a" * 20, metainfo_cb)
 
         return test_deferred
 
@@ -154,8 +154,8 @@ class TestLibtorrentMgr(AbstractServer):
         self.ltmgr.initialize()
 
         def metainfo_cb(metainfo):
-            self.assertDictEqual(metainfo, {'info': {'pieces': ['a']}, 'leechers': 0,
-                                            'nodes': [], 'seeders': 0})
+            self.assertDictEqual(metainfo, {b'info': {b'pieces': [b'a']}, b'leechers': 0,
+                                            b'nodes': [], b'seeders': 0})
             test_deferred.callback(None)
 
         fake_handle = MockObject()
@@ -185,18 +185,18 @@ class TestLibtorrentMgr(AbstractServer):
         test_deferred = Deferred()
 
         def metainfo_timeout_cb(metainfo):
-            self.assertEqual(metainfo, 'a' * 20)
+            self.assertEqual(metainfo, b'a' * 20)
             test_deferred.callback(None)
 
         fake_handle = MockObject()
 
         self.ltmgr.initialize()
-        self.ltmgr.metainfo_requests[hexlify('a' * 20)] = {'handle': fake_handle,
-                                                                  'timeout_callbacks': [metainfo_timeout_cb],
-                                                                  'callbacks': [],
-                                                                  'notify': True}
+        self.ltmgr.metainfo_requests[hexlify(b'a' * 20)] = {'handle': fake_handle,
+                                                            'timeout_callbacks': [metainfo_timeout_cb],
+                                                            'callbacks': [],
+                                                            'notify': True}
         self.ltmgr.ltsession_metainfo.remove_torrent = lambda _dummy1, _dummy2: None
-        self.ltmgr.got_metainfo(hexlify('a' * 20), timeout=True)
+        self.ltmgr.got_metainfo(hexlify(b'a' * 20), timeout=True)
 
         return test_deferred
 
@@ -229,7 +229,7 @@ class TestLibtorrentMgr(AbstractServer):
         self.ltmgr.initialize()
         self.ltmgr.torrents[hex_infohash] = (download_impl, mock_ltsession)
 
-        magnet_link = "magnet:?xt=urn:btih:%s" % hex_infohash
+        magnet_link = b"magnet:?xt=urn:btih:%s" % hex_infohash
         self.ltmgr.get_metainfo(magnet_link, callback=metainfo_callback)
         return test_deferred
 
@@ -416,9 +416,9 @@ class TestLibtorrentMgr(AbstractServer):
             return dl
         self.tribler_session.start_download_from_tdef = dl_from_tdef
 
-        download = self.ltmgr.start_download_from_magnet("magnet:?xt=urn:btih:" + ('1'*40))
+        download = self.ltmgr.start_download_from_magnet(b"magnet:?xt=urn:btih:" + (b'1'*40))
 
-        basename = hexlify(download.get_def().get_infohash()) + '.state'
+        basename = hexlify(download.get_def().get_infohash()).decode() + '.state'
         filename = os.path.join(download.session.get_downloads_pstate_dir(), basename)
 
         self.assertTrue(os.path.isfile(filename))

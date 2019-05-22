@@ -18,7 +18,7 @@ from shutil import rmtree
 import libtorrent as lt
 from libtorrent import bdecode, torrent_handle
 
-from six import text_type
+from six import b, text_type
 from six.moves.urllib.request import url2pathname
 
 from twisted.internet import reactor
@@ -185,7 +185,7 @@ class LibtorrentMgr(TaskManager):
 
             mid = self.tribler_session.trustchain_keypair.key_to_hash()
             settings['peer_fingerprint'] = mid
-            settings['handshake_client_version'] = 'Tribler/' + version_id + '/' + str(hexlify(mid))
+            settings['handshake_client_version'] = 'Tribler/' + version_id + '/' + text_type(hexlify(mid))
         else:
             settings['enable_outgoing_utp'] = True
             settings['enable_incoming_utp'] = True
@@ -440,7 +440,7 @@ class LibtorrentMgr(TaskManager):
             self.alert_callback(alert)
 
     def get_metainfo(self, infohash_or_magnet, callback, timeout=30, timeout_callback=None, notify=True):
-        magnet = infohash_or_magnet if infohash_or_magnet.startswith('magnet') else None
+        magnet = infohash_or_magnet if infohash_or_magnet.startswith(b'magnet') else None
         infohash_bin = infohash_or_magnet if not magnet else parse_magnetlink(magnet)[1]
         infohash = hexlify(infohash_bin)
 
@@ -517,7 +517,7 @@ class LibtorrentMgr(TaskManager):
                 assert handle
                 if handle:
                     if callbacks and not timeout:
-                        metainfo = {"info": lt.bdecode(get_info_from_handle(handle).metadata())}
+                        metainfo = {b"info": lt.bdecode(get_info_from_handle(handle).metadata())}
                         trackers = [tracker.url for tracker in get_info_from_handle(handle).trackers()]
                         peers = []
                         leechers = 0
@@ -531,15 +531,15 @@ class LibtorrentMgr(TaskManager):
 
                         if trackers:
                             if len(trackers) > 1:
-                                metainfo["announce-list"] = [trackers]
-                            metainfo["announce"] = trackers[0]
+                                metainfo[b"announce-list"] = [trackers]
+                            metainfo[b"announce"] = trackers[0]
                         else:
-                            metainfo["nodes"] = []
+                            metainfo[b"nodes"] = []
                         if peers and notify:
                             self.notifier.notify(NTFY_TORRENTS, NTFY_MAGNET_GOT_PEERS, infohash_bin, len(peers))
 
-                        metainfo["leechers"] = leechers
-                        metainfo["seeders"] = seeders
+                        metainfo[b"leechers"] = leechers
+                        metainfo[b"seeders"] = seeders
 
                         self._add_cached_metainfo(infohash, metainfo)
 
@@ -548,7 +548,7 @@ class LibtorrentMgr(TaskManager):
 
                         # let's not print the hashes of the pieces
                         debuginfo = deepcopy(metainfo)
-                        del debuginfo['info']['pieces']
+                        del debuginfo[b'info'][b'pieces']
                         self._logger.debug('got_metainfo result %s', debuginfo)
 
                     elif timeout_callbacks and timeout:
@@ -562,11 +562,11 @@ class LibtorrentMgr(TaskManager):
 
     def _get_cached_metainfo(self, infohash):
         if infohash in self.metainfo_cache:
-            return self.metainfo_cache[infohash]['meta_info']
+            return self.metainfo_cache[infohash][b'meta_info']
 
     def _add_cached_metainfo(self, infohash, metainfo):
-        self.metainfo_cache[infohash] = {'time': time.time(),
-                                         'meta_info': metainfo}
+        self.metainfo_cache[infohash] = {b'time': time.time(),
+                                         b'meta_info': metainfo}
 
     def _task_cleanup_metainfo_cache(self):
         oldest_time = time.time() - METAINFO_CACHE_PERIOD

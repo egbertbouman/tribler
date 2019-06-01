@@ -75,7 +75,14 @@ class BaseTestCase(unittest.TestCase):
         while self._tempdirs:
             temp_dir = self._tempdirs.pop()
             os.chmod(temp_dir, 0o700)
-            shutil.rmtree(six.text_type(temp_dir), ignore_errors=False)
+            # Sometimes rmtree fails because a file is still locked, so we will try for a mere 1000 times
+            for tries_left in reversed(list(range(1000))):
+                try:
+                    shutil.rmtree(six.text_type(temp_dir), ignore_errors=False)
+                    break
+                except:
+                    if tries_left == 0:
+                        raise
 
     def temporary_directory(self, suffix='', exist_ok=False):
         random_string = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))

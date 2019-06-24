@@ -48,7 +48,7 @@ class GigaChannelManager(TaskManager):
             with db_session:
                 my_channel = self.session.lm.mds.ChannelMetadata.get_my_channel()
                 if my_channel and my_channel.status == COMMITTED and \
-                        not self.session.has_download(str(my_channel.infohash)):
+                        not self.session.has_download(my_channel.infohash):
                     torrent_path = os.path.join(self.session.lm.mds.channels_dir, my_channel.dir_name + ".torrent")
                     mdblob_path = os.path.join(self.session.lm.mds.channels_dir, my_channel.dir_name + ".mdblob")
                     tdef = None
@@ -57,7 +57,7 @@ class GigaChannelManager(TaskManager):
                             tdef = TorrentDef.load(torrent_path)
                         except IOError:
                             self._logger.warning("Can't open personal channel torrent file. Will try to regenerate it.")
-                    if tdef and tdef.infohash == str(my_channel.infohash):
+                    if tdef and tdef.infohash == my_channel.infohash:
                         tdef = tdef
                     else:
                         regenerated = my_channel.consolidate_channel_torrent()
@@ -143,14 +143,14 @@ class GigaChannelManager(TaskManager):
 
         for channel in channels:
             try:
-                if not self.session.has_download(str(channel.infohash)):
+                if not self.session.has_download(channel.infohash):
                     self._logger.info("Downloading new channel version %s ver %i->%i",
                                       hexlify(channel.public_key).decode('utf-8'),
                                       channel.local_version, channel.timestamp)
                     self.download_channel(channel)
-                elif self.session.get_download(str(channel.infohash)).get_state().get_status() == DLSTATUS_SEEDING:
+                elif self.session.get_download(channel.infohash).get_state().get_status() == DLSTATUS_SEEDING:
                     self._logger.info("Processing previously downloaded, but unprocessed channel torrent %s ver %i->%i",
-                                      hexlify(str(channel.public_key)),
+                                      hexlify(channel.public_key),
                                       channel.local_version, channel.timestamp)
                     self.channels_processing_queue[channel.infohash] = (PROCESS_CHANNEL_DIR, channel)
             except Exception:
@@ -261,7 +261,7 @@ class GigaChannelManager(TaskManager):
         """
         with db_session:
             my_channel = self.session.lm.mds.ChannelMetadata.get_my_channel()
-        if my_channel and my_channel.status == COMMITTED and not self.session.has_download(str(my_channel.infohash)):
+        if my_channel and my_channel.status == COMMITTED and not self.session.has_download(my_channel.infohash):
             dcfg = DownloadConfig(state_dir=self.session.config.get_state_dir())
             dcfg.set_dest_dir(self.session.lm.mds.channels_dir)
             dcfg.set_channel_download(True)

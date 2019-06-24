@@ -110,8 +110,8 @@ class SignedPayload(Payload):
         serialized_data = default_serializer.pack_multiple(self.to_pack_list())[0]
         if "key" in kwargs and kwargs["key"]:
             key = kwargs["key"]
-            if self.public_key != str(key.pub().key_to_bin()[10:]):
-                raise KeysMismatchException(self.public_key, str(key.pub().key_to_bin()[10:]))
+            if self.public_key != key.pub().key_to_bin()[10:]:
+                raise KeysMismatchException(self.public_key, key.pub().key_to_bin()[10:])
             self.signature = default_eccrypto.create_signature(key, serialized_data)
         elif "signature" in kwargs:
             # This check ensures that an entry with a wrong signature will not proliferate further

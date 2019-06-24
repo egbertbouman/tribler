@@ -394,7 +394,7 @@ class MetadataStore(object):
             return [(node, NO_ACTION)]
 
         # Signed entry > FFA entry. Old FFA entry > new FFA entry
-        ffa_node = self.TorrentMetadata.get_for_update(public_key=database_blob(""),
+        ffa_node = self.TorrentMetadata.get_for_update(public_key=database_blob(b""),
                                                        infohash=database_blob(payload.infohash))
         if ffa_node:
             ffa_node.delete()

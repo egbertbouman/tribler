@@ -177,7 +177,7 @@ class TorrentChecker(TaskManager):
 
         random_torrent = random.choice(random_torrents)
         self.check_torrent_health(random_torrent.infohash)
-        return [random_torrent.infohash]
+        return [bytes(random_torrent.infohash)]
 
     def get_callbacks_for_session(self, session):
         success_lambda = lambda info_dict: self._on_result_from_session(session, info_dict)

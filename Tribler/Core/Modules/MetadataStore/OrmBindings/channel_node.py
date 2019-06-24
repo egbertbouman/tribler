@@ -88,7 +88,7 @@ def define_binding(db, logger=None, key=None, clock=None):
                 private_key_override = kwargs.pop("sign_with")
 
             # Free-for-all entries require special treatment
-            if "public_key" in kwargs and kwargs["public_key"] == "":
+            if "public_key" in kwargs and kwargs["public_key"] == b"":
                 # We have to give the entry an unique sig to honor the DB constraints. We use the entry's id_
                 # as the sig to keep it unique and short. The uniqueness is guaranteed by DB as it already
                 # imposes uniqueness constraints on the id_+public_key combination.

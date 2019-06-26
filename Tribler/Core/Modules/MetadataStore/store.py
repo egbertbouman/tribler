@@ -264,7 +264,7 @@ class MetadataStore(object):
             if not channel:
                 return
             self._logger.debug("Finished processing channel dir %s. Channel %s local/max version %i/%i",
-                           dirname, hexlify(channel.public_key).decode('utf-8'), channel.local_version,
+                               dirname, hexlify(channel.public_key).decode('utf-8'), channel.local_version,
                                channel.timestamp)
 
     def process_mdblob_file(self, filepath, external_thread=False):

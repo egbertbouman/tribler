@@ -171,12 +171,12 @@ class TorrentChecker(TaskManager):
             random_torrents = random.sample(random_torrents, min(3, len(random_torrents)))
             infohashes = []
             for random_torrent in random_torrents:
-                self.check_torrent_health(random_torrent.infohash)
+                self.check_torrent_health(bytes(random_torrent.infohash))
                 infohashes.append(random_torrent.infohash)
             return infohashes
 
         random_torrent = random.choice(random_torrents)
-        self.check_torrent_health(random_torrent.infohash)
+        self.check_torrent_health(bytes(random_torrent.infohash))
         return [bytes(random_torrent.infohash)]
 
     def get_callbacks_for_session(self, session):

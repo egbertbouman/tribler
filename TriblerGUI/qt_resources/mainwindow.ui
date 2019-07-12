@@ -4445,7 +4445,7 @@ margin: 10px;</string>
                 <string notr="true"/>
                </property>
                <property name="text">
-                <string>SEEDING</string>
+                <string>QUEUE</string>
                </property>
                <property name="checkable">
                 <bool>true</bool>
@@ -5580,6 +5580,112 @@ color: white;</string>
                    <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
                   </property>
                   <item row="0" column="0">
+                   <widget class="QLabel" name="active_torrents_label">
+                    <property name="styleSheet">
+                     <string notr="true">font-weight: bold;
+color: white;</string>
+                    </property>
+                    <property name="text">
+                     <string>Active torrents</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="0">
+                   <widget class="QLabel" name="active_downloads_label">
+                    <property name="text">
+                     <string>Active downloads</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="1">
+                   <widget class="QLineEdit" name="active_downloads_input">
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>60</width>
+                      <height>28</height>
+                     </size>
+                    </property>
+                    <property name="maximumSize">
+                     <size>
+                      <width>60</width>
+                      <height>28</height>
+                     </size>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="3" column="0">
+                   <widget class="QLabel" name="active_downloads_label">
+                    <property name="text">
+                     <string>Active seeds</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="3" column="1">
+                   <widget class="QLineEdit" name="active_seeds_input">
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>60</width>
+                      <height>28</height>
+                     </size>
+                    </property>
+                    <property name="maximumSize">
+                     <size>
+                      <width>60</width>
+                      <height>28</height>
+                     </size>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="4" column="0">
+                   <widget class="QLabel" name="active_downloads_label">
+                    <property name="text">
+                     <string>Active limit</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="4" column="1">
+                   <widget class="QLineEdit" name="active_limit_input">
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>60</width>
+                      <height>28</height>
+                     </size>
+                    </property>
+                    <property name="maximumSize">
+                     <size>
+                      <width>60</width>
+                      <height>28</height>
+                     </size>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="5" column="0">
+                   <widget class="QLabel" name="active_torrents_note_label">
+                    <property name="text">
+                     <string>Note that these settings apply on a per-hop basis.
+Token mining and channel downloads are excluded from these settings.</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="7" column="0">
                    <widget class="QLabel" name="tribler_profile_header_label">
                     <property name="styleSheet">
                      <string notr="true">font-weight: bold;
@@ -5590,7 +5696,7 @@ color: white;</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="4" column="1">
+                  <item row="11" column="1">
                    <widget class="QLineEdit" name="seeding_time_input">
                     <property name="sizePolicy">
                      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -5618,7 +5724,7 @@ color: white;</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="2" column="1">
+                  <item row="9" column="1">
                    <widget class="QComboBox" name="seeding_ratio_combobox">
                     <property name="sizePolicy">
                      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -5675,7 +5781,7 @@ color: white;</string>
                     </item>
                    </widget>
                   </item>
-                  <item row="5" column="0">
+                  <item row="12" column="0">
                    <widget class="QRadioButton" name="seeding_never_radio">
                     <property name="styleSheet">
                      <string notr="true"/>
@@ -5685,7 +5791,7 @@ color: white;</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="4" column="0">
+                  <item row="11" column="0">
                    <widget class="QRadioButton" name="seeding_time_radio">
                     <property name="styleSheet">
                      <string notr="true"/>
@@ -5695,7 +5801,7 @@ color: white;</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="3" column="0">
+                  <item row="10" column="0">
                    <widget class="QRadioButton" name="seeding_forever_radio">
                     <property name="styleSheet">
                      <string notr="true"/>
@@ -5705,7 +5811,7 @@ color: white;</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="2" column="0">
+                  <item row="9" column="0">
                    <widget class="QRadioButton" name="seeding_ratio_radio">
                     <property name="styleSheet">
                      <string notr="true"/>
@@ -5715,7 +5821,7 @@ color: white;</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="6" column="0" colspan="2">
+                  <item row="13" column="0" colspan="2">
                    <widget class="QLabel" name="label_45">
                     <property name="text">
                      <string>Note that these settings also apply to existing downloads.</string>

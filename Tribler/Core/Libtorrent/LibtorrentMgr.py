@@ -153,6 +153,11 @@ class LibtorrentMgr(TaskManager):
     def create_session(self, hops=0, store_listen_port=True):
         settings = {}
 
+        active_downloads, active_seeds, active_limit = self.tribler_session.config.get_libtorrent_queue_settings()
+        settings['active_downloads'] = active_downloads
+        settings['active_seeds'] = active_seeds
+        settings['active_limit'] = active_limit
+
         # Due to a bug in Libtorrent 0.16.18, the outgoing_port and num_outgoing_ports value should be set in
         # the settings dictionary
         settings['outgoing_port'] = 0

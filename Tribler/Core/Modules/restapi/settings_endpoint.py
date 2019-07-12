@@ -89,8 +89,14 @@ class SettingsEndpoint(resource.Resource):
         if section == "libtorrent" and (option == "max_download_rate" or option == "max_upload_rate"):
             self.session.lm.ltmgr.update_max_rates_from_config()
 
+        elif section == "libtorrent" and option in ["active_downloads", "active_seeds", "active_limit"]:
+            for lt_session in self.session.lm.ltmgr.ltsessions.values():
+                lt_settings = lt_session.get_settings()
+                lt_settings[option] = value
+                self.session.lm.ltmgr.set_session_settings(lt_session, lt_settings)
+
         # Apply changes to the default downloadconfig to already existing downloads
-        if section == "download_defaults" and option in ["seeding_mode", "seeding_time", "seeding_ratio"]:
+        elif section == "download_defaults" and option in ["seeding_mode", "seeding_time", "seeding_ratio"]:
             for download in self.session.get_downloads():
                 if download.config.get_credit_mining():
                     # Do not interfere with credit mining downloads

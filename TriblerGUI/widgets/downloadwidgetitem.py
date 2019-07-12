@@ -76,7 +76,10 @@ class DownloadWidgetItem(QTreeWidgetItem):
         if self.download_info["vod_mode"]:
             self.setText(3, "Streaming")
         else:
-            self.setText(3, DLSTATUS_STRINGS[eval(self.download_info["status"])])
+            queue_pos = "(%d)" % self.download_info["queue_position"] \
+                if self.get_raw_download_status() == DLSTATUS_QUEUED \
+                and self.download_info["queue_position"] is not None else ''
+            self.setText(3, DLSTATUS_STRINGS[eval(self.download_info["status"])] + queue_pos)
         self.setText(4, "%s (%s)" % (self.download_info["num_connected_seeds"], self.download_info["num_seeds"]))
         self.setText(5, "%s (%s)" % (self.download_info["num_connected_peers"], self.download_info["num_peers"]))
         self.setText(6, format_speed(self.download_info["speed_down"]))

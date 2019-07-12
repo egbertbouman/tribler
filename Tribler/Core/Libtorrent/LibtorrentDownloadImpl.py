@@ -255,6 +255,11 @@ class LibtorrentDownloadImpl(TaskManager):
                 atp["flags"] = atp["flags"] | lt.add_torrent_params_flags_t.flag_share_mode
             if upload_mode:
                 atp["flags"] = atp["flags"] | lt.add_torrent_params_flags_t.flag_upload_mode
+            if not self.config.get_user_stopped() \
+                    and not self.config.get_credit_mining()\
+                    and not self.config.get_channel_download():
+                atp["flags"] = atp["flags"] | lt.add_torrent_params_flags_t.flag_auto_managed | \
+                                              lt.add_torrent_params_flags_t.flag_override_resume_data
 
             self.set_checkpoint_disabled(checkpoint_disabled)
 
@@ -952,6 +957,8 @@ class LibtorrentDownloadImpl(TaskManager):
                 return ds
 
     def stop(self):
+        if self.handle:
+            self.handle.auto_managed(False)
         self.config.set_user_stopped(True)
         return self.stop_remove(removestate=False, removecontent=False)
 
@@ -999,6 +1006,8 @@ class LibtorrentDownloadImpl(TaskManager):
 
     def restart(self):
         """ Restart the Download """
+        if self.handle:
+            self.handle.auto_managed(True)
         self.config.set_user_stopped(False)
         self._logger.debug("LibtorrentDownloadImpl: restart: %s", self.tdef.get_name())
 

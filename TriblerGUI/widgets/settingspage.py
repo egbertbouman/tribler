@@ -285,6 +285,11 @@ class SettingsPage(QWidget):
         self.window().upload_rate_limit_input.setText(str(settings['libtorrent']['max_upload_rate'] // 1024))
         self.window().download_rate_limit_input.setText(str(settings['libtorrent']['max_download_rate'] // 1024))
 
+        # Active torrent settings
+        self.window().active_downloads_input.setText(str(settings['libtorrent']['active_downloads']))
+        self.window().active_seeds_input.setText(str(settings['libtorrent']['active_seeds']))
+        self.window().active_limit_input.setText(str(settings['libtorrent']['active_limit']))
+
         # Seeding settings
         getattr(self.window(), "seeding_" + settings['download_defaults']['seeding_mode'] + "_radio").setChecked(True)
         self.window().seeding_time_input.setText(seconds_to_hhmm_string(settings['download_defaults']['seeding_time']))
@@ -434,6 +439,15 @@ class SettingsPage(QWidget):
         except ValueError:
             ConfirmationDialog.show_error(self.window(), "Invalid value for api port",
                                           "Please enter a valid port for the api (between 0 and 65536)")
+            return
+
+        try:
+            settings_data['libtorrent']['active_downloads'] = int(self.window().active_downloads_input.text())
+            settings_data['libtorrent']['active_seeds'] = int(self.window().active_seeds_input.text())
+            settings_data['libtorrent']['active_limit'] = int(self.window().active_limit_input.text())
+        except ValueError:
+            ConfirmationDialog.show_error(self.window(), "Invalid value for active torrent limit",
+                                          "Please enter an integer")
             return
 
         seeding_modes = ['forever', 'time', 'never', 'ratio']

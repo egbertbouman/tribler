@@ -13,7 +13,8 @@ from six import ensure_text
 
 from Tribler.Core.simpledefs import (DLSTATUS_ALLOCATING_DISKSPACE, DLSTATUS_CIRCUITS, DLSTATUS_DOWNLOADING,
                                      DLSTATUS_EXIT_NODES, DLSTATUS_HASHCHECKING, DLSTATUS_METADATA, DLSTATUS_SEEDING,
-                                     DLSTATUS_STOPPED, DLSTATUS_STOPPED_ON_ERROR, DLSTATUS_WAITING4HASHCHECK, UPLOAD)
+                                     DLSTATUS_STOPPED, DLSTATUS_STOPPED_ON_ERROR, DLSTATUS_WAITING4HASHCHECK,
+                                     DLSTATUS_QUEUED, UPLOAD)
 
 # Map used to convert libtorrent -> Tribler download status
 DLSTATUS_MAP = [DLSTATUS_WAITING4HASHCHECK,
@@ -71,7 +72,13 @@ class DownloadState(object):
                     else DLSTATUS_EXIT_NODES) if self.download.config.get_hops() > 0 else DLSTATUS_WAITING4HASHCHECK
         elif self.get_error():
             return DLSTATUS_STOPPED_ON_ERROR
-        return DLSTATUS_MAP[self.lt_status.state] if not self.lt_status.paused else DLSTATUS_STOPPED
+        elif self.lt_status.paused:
+            return DLSTATUS_QUEUED if self.lt_status.auto_managed else DLSTATUS_STOPPED
+        return DLSTATUS_MAP[self.lt_status.state]
+
+    def get_queue_position(self):
+        if self.lt_status and self.lt_status.queue_position > 0:
+            return self.lt_status.queue_position
 
     def get_error(self):
         """ Returns the Exception that caused the download to be moved to DLSTATUS_STOPPED_ON_ERROR status.

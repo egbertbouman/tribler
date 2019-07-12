@@ -243,6 +243,7 @@ class DownloadsEndpoint(DownloadBaseEndpoint):
                 "speed_down": state.get_current_payload_speed(DOWNLOAD),
                 "speed_up": state.get_current_payload_speed(UPLOAD),
                 "status": dlstatus_strings[state.get_status()],
+                "queue_position": state.get_queue_position(),
                 "size": tdef.get_length(),
                 "eta": state.get_eta(),
                 "num_peers": num_peers,
@@ -290,6 +291,13 @@ class DownloadsEndpoint(DownloadBaseEndpoint):
                 download_json["files"] = self.get_files_info_json(download)
 
             downloads_json.append(download_json)
+
+        index = 1
+        for download_json in sorted(downloads_json, key=lambda d: d['queue_position'], reverse=True):
+            if download_json['status'] == 'DLSTATUS_QUEUED' and download_json['queue_position']:
+                download_json['queue_position'] = index
+                index += 1
+
         return json.twisted_dumps({"downloads": downloads_json})
 
     def render_PUT(self, request):

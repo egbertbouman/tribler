@@ -295,6 +295,16 @@ class TriblerConfig(object):
     def get_libtorrent_utp(self):
         return self.config['libtorrent']['utp']
 
+    def get_libtorrent_queue_settings(self):
+        return (self.config['libtorrent']['active_downloads'],
+                self.config['libtorrent']['active_seeds'],
+                self.config['libtorrent']['active_limit'])
+
+    def set_libtorrent_queue_settings(self, active_downloads, active_seeds, active_limit):
+        self.config['libtorrent']['active_downloads'] = active_downloads
+        self.config['libtorrent']['active_seeds'] = active_seeds
+        self.config['libtorrent']['active_limit'] = active_limit
+
     def set_libtorrent_port(self, port):
         self.config['libtorrent']['port'] = port
 

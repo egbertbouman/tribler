@@ -102,13 +102,14 @@ class RESTManager():
         if config.get_api_http_enabled():
             self.site = web.TCPSite(runner, 'localhost', config.get_api_http_port())
             await self.site.start()
-            self._logger.info("Started HTTP REST API on port %d", self.site._port)
+            self._logger.info("Started HTTP REST API: %s", self.site.name)
 
         if config.get_api_https_enabled():
             ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
             ssl_context.load_cert_chain(config.get_api_https_certfile())
             self.site_https = web.TCPSite(runner, '0.0.0.0', config.get_api_https_port(), ssl_context=ssl_context)
             await self.site_https.start()
+            self._logger.info("Started HTTPS REST API: %s", self.site_https.name)
 
         # REST Manager does not accept any new requests if Tribler is shutting down.
         # Note that environment variable 'TRIBLER_SHUTTING_DOWN' is set to 'TRUE' (string)

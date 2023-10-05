@@ -1,11 +1,12 @@
 # Some constants used in the RFC 1928 specification
+import ipaddress
 import logging
 import socket
 import struct
 
-from ipv8.messaging.interfaces.udp.endpoint import DomainAddress, UDPv4Address
+from ipv8.messaging.interfaces.udp.endpoint import DomainAddress, UDPv4Address, UDPv6Address
 from ipv8.messaging.lazy_payload import VariablePayload, vp_compile
-from ipv8.messaging.serialization import DefaultStruct, ListOf, Serializer
+from ipv8.messaging.serialization import DefaultStruct, ListOf, Serializer, Packer
 
 SOCKS_VERSION = 0x05
 
@@ -63,14 +64,18 @@ class UdpPacket(VariablePayload):
     format_list = ['H', 'B', 'socks5_address', 'raw']
 
 
-class Socks5Address:
+class Socks5Address(Packer):
 
     def pack(self, data):
+        if isinstance(data, UDPv4Address):
+            return struct.pack('>B4sH', ADDRESS_TYPE_IPV4, socket.inet_aton(data[0]), data[1])
+        if isinstance(data, UDPv6Address):
+            print('!!!!!!!!!!!PACK6')
+            return struct.pack('>B16sH', ADDRESS_TYPE_IPV6,
+                               socket.inet_pton(socket.AF_INET6, data[0]), data[1])
         if isinstance(data, DomainAddress):
             host = data[0].encode()
             return struct.pack('>BB', ADDRESS_TYPE_DOMAIN_NAME, len(host)) + host + struct.pack('>H', data[1])
-        if isinstance(data, tuple):
-            return struct.pack('>B4sH', ADDRESS_TYPE_IPV4, socket.inet_aton(data[0]), data[1])
         raise InvalidAddressException(f'Could not pack address {data}')
 
     def unpack(self, data, offset, unpack_list):
@@ -82,6 +87,12 @@ class Socks5Address:
             port, = struct.unpack_from('>H', data, offset + 4)
             offset += 6
             address = UDPv4Address(host, port)
+        elif address_type == ADDRESS_TYPE_IPV6:
+            host = socket.inet_ntop(socket.AF_INET6, data[offset:offset + 16])
+            port, = struct.unpack_from('>H', data, offset + 16)
+            offset += 18
+            print('!!!!!!!!!!!UNPACK6')
+            address = UDPv6Address(host, port)
         elif address_type == ADDRESS_TYPE_DOMAIN_NAME:
             domain_length, = struct.unpack_from('>B', data, offset)
             offset += 1
@@ -93,8 +104,6 @@ class Socks5Address:
             port, = struct.unpack_from('>H', data, offset + domain_length)
             offset += domain_length + 2
             address = DomainAddress(host, port)
-        elif address_type == ADDRESS_TYPE_IPV6:
-            raise IPv6AddressError()
         else:
             raise InvalidAddressException(f'Could not unpack address type {address_type}')
 
@@ -106,9 +115,13 @@ class InvalidAddressException(Exception):
     pass
 
 
-class IPv6AddressError(NotImplementedError):
-    def __str__(self):
-        return "IPV6 support not implemented"
+def to_ipv8_address(address):
+    try:
+        if isinstance(ipaddress.ip_address(address[0]), ipaddress.IPv6Address):
+            return UDPv6Address(*address)
+        return UDPv4Address(*address)
+    except ValueError:
+        return DomainAddress(*address)
 
 
 socks5_serializer = Serializer()

@@ -66,7 +66,7 @@ class TriblerTunnelCommunity(HiddenTunnelCommunity):
     This community is built upon the anonymous messaging layer in IPv8.
     It adds support for libtorrent anonymous downloads and bandwidth token payout when closing circuits.
     """
-    community_id = unhexlify('a3591a6bd89bbaca0974062a1287afcfbc6fd6bb')
+    community_id = unhexlify('a3591a6bd89bbaca0974062a1287afcfbc6fd6bc')
 
     def __init__(self, *args, **kwargs):
         self.bandwidth_community = kwargs.pop('bandwidth_community', None)
@@ -572,7 +572,8 @@ class TriblerTunnelCommunity(HiddenTunnelCommunity):
                 lt_listen_port = lt_listen_port or self.download_manager.get_session(hops).listen_port()
                 for session in self.socks_servers[hops - 1].sessions:
                     if session.udp_connection and lt_listen_port:
-                        session.udp_connection.remote_udp_address = ("127.0.0.1", lt_listen_port)
+                        from ipv8.messaging.interfaces.udp.endpoint import UDPv4Address
+                        session.udp_connection.remote_udp_address = UDPv4Address("127.0.0.1", lt_listen_port)
         await super().create_introduction_point(info_hash, required_ip=required_ip)
 
     async def unload(self):

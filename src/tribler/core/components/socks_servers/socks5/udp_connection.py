@@ -10,6 +10,7 @@ class SocksUDPConnection(DatagramProtocol):
 
     def __init__(self, socksconnection, remote_udp_address):
         self._logger = logging.getLogger(self.__class__.__name__)
+        self._logger.setLevel(logging.DEBUG)
         self.socksconnection = socksconnection
         self.transport = None
         self.remote_udp_address = remote_udp_address if remote_udp_address != ("0.0.0.0", 0) else None

@@ -4,6 +4,7 @@ from unittest.mock import Mock
 import pytest
 from aiohttp import ClientSession
 
+from ipv8.messaging.interfaces.udp.endpoint import UDPv4Address
 from tribler.core.components.socks_servers.socks5.aiohttp_connector import Socks5Connector
 from tribler.core.components.socks_servers.socks5.client import Socks5Client, Socks5Error
 from tribler.core.components.socks_servers.socks5.conversion import UdpPacket, socks5_serializer
@@ -52,7 +53,7 @@ async def test_socks5_sendto_success(socks5_server):
     """
     await socks5_server.start()
     data = b'\x00'
-    target = ('127.0.0.1', 123)
+    target = UDPv4Address('127.0.0.1', 123)
     client = Socks5Client(('127.0.0.1', socks5_server.port), Mock())
     await client.associate_udp()
 

@@ -1,9 +1,6 @@
-import ipaddress
 import logging
-import socket
 from asyncio import DatagramProtocol, Protocol, Queue, get_event_loop
 
-from ipv8.messaging.interfaces.udp.endpoint import DomainAddress
 from ipv8.messaging.serialization import PackError
 
 from tribler.core.components.socks_servers.socks5.conversion import (
@@ -17,6 +14,7 @@ from tribler.core.components.socks_servers.socks5.conversion import (
     SOCKS_VERSION,
     UdpPacket,
     socks5_serializer,
+    to_ipv8_address,
 )
 
 
@@ -44,11 +42,7 @@ class Socks5ClientUDPConnection(DatagramProtocol):
             self.callback(request.data, request.destination)
 
     def sendto(self, data, target_addr):
-        try:
-            ipaddress.IPv4Address(target_addr[0])
-        except ipaddress.AddressValueError:
-            target_addr = DomainAddress(*target_addr)
-        packet = socks5_serializer.pack_serializable(UdpPacket(0, 0, target_addr, data))
+        packet = socks5_serializer.pack_serializable(UdpPacket(0, 0, to_ipv8_address(target_addr), data))
         self.transport.sendto(packet, self.proxy_udp_addr)
 
 
@@ -94,7 +88,7 @@ class Socks5Client(Protocol):
         transport, _ = await get_event_loop().create_datagram_endpoint(lambda: connection, local_addr=local_addr)
         sock = transport.get_extra_info("socket")
 
-        request = CommandRequest(SOCKS_VERSION, REQ_CMD_UDP_ASSOCIATE, 0, sock.getsockname())
+        request = CommandRequest(SOCKS_VERSION, REQ_CMD_UDP_ASSOCIATE, 0, to_ipv8_address(sock.getsockname()))
         data = await self._send(socks5_serializer.pack_serializable(request))
         response, _ = socks5_serializer.unpack_serializable(CommandResponse, data)
         connection.proxy_udp_addr = response.bind
@@ -108,11 +102,6 @@ class Socks5Client(Protocol):
         self.connection = connection
 
     async def _connect_tcp(self, target_addr):
-        try:
-            socket.inet_aton(target_addr[0])
-        except (ValueError, OSError):
-            target_addr = DomainAddress(*target_addr)
-
         request = CommandRequest(SOCKS_VERSION, REQ_CMD_CONNECT, 0, target_addr)
         data = await self._send(socks5_serializer.pack_serializable(request))
         response, _ = socks5_serializer.unpack_serializable(CommandResponse, data)
@@ -144,7 +133,7 @@ class Socks5Client(Protocol):
     def sendto(self, data, target_addr):
         if not self.associated:
             raise Socks5Error('Not associated yet. First call associate_udp.')
-        self.connection.sendto(data, target_addr)
+        self.connection.sendto(data, to_ipv8_address(target_addr))
 
     async def connect_tcp(self, target_addr):
         if self.associated:
@@ -152,7 +141,7 @@ class Socks5Client(Protocol):
 
         if not self.connected:
             await self._login()
-            await self._connect_tcp(target_addr)
+            await self._connect_tcp(to_ipv8_address(target_addr))
 
     def write(self, data):
         if not self.connected:

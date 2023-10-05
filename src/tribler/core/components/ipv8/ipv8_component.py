@@ -136,4 +136,4 @@ class Ipv8Component(Component):
                 await self.ipv8.unload_overlay(overlay)
 
         await self._task_manager.shutdown_task_manager()
-        await self.ipv8.stop(stop_loop=False)
+        await self.ipv8.stop()

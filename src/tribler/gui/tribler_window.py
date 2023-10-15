@@ -263,7 +263,7 @@ class TriblerWindow(QMainWindow):
 
         self.menu_buttons = [
             self.left_menu_button_downloads,
-            self.left_menu_button_discovered,
+            # self.left_menu_button_discovered,
             self.left_menu_button_popular,
         ]
 
@@ -369,17 +369,17 @@ class TriblerWindow(QMainWindow):
         self.add_torrent_menu = self.create_add_torrent_menu()
         self.add_torrent_button.setMenu(self.add_torrent_menu)
 
-        self.channels_menu_list = self.findChild(ChannelsMenuListWidget, "channels_menu_list")
-
-        connect(self.channels_menu_list.itemClicked, self.open_channel_contents_page)
+        # self.channels_menu_list = self.findChild(ChannelsMenuListWidget, "channels_menu_list")
+        #
+        # connect(self.channels_menu_list.itemClicked, self.open_channel_contents_page)
 
         # The channels content page is only used to show subscribed channels, so we always show xxx
         # contents in it.
-        connect(
-            self.core_manager.events_manager.node_info_updated,
-            lambda data: self.channels_menu_list.reload_if_necessary([data]),
-        )
-        connect(self.left_menu_button_new_channel.clicked, self.create_new_channel)
+        # connect(
+        #     self.core_manager.events_manager.node_info_updated,
+        #     lambda data: self.channels_menu_list.reload_if_necessary([data]),
+        # )
+        # connect(self.left_menu_button_new_channel.clicked, self.create_new_channel)
         connect(self.debug_panel_button.clicked, self.clicked_debug_panel_button)
         connect(self.trust_graph_button.clicked, self.clicked_trust_graph_page_button)
 
@@ -433,18 +433,18 @@ class TriblerWindow(QMainWindow):
         restore_size()
         restore_position()
 
-    def create_new_channel(self, checked):
-        # TODO: DRY this with tablecontentmodel, possibly using QActions
-
-        def update_channels_state(_):
-            self.channels_menu_list.load_channels()
-            self.add_to_channel_dialog.clear_channels_tree()
-
-        def create_channel_callback(channel_name):
-            request_manager.post("channels/mychannel/0/channels", update_channels_state,
-                                 data={"name": channel_name} if channel_name else None)
-
-        NewChannelDialog(self, create_channel_callback)
+    # def create_new_channel(self, checked):
+    #     # TODO: DRY this with tablecontentmodel, possibly using QActions
+    #
+    #     def update_channels_state(_):
+    #         self.channels_menu_list.load_channels()
+    #         self.add_to_channel_dialog.clear_channels_tree()
+    #
+    #     def create_channel_callback(channel_name):
+    #         request_manager.post("channels/mychannel/0/channels", update_channels_state,
+    #                              data={"name": channel_name} if channel_name else None)
+    #
+    #     NewChannelDialog(self, create_channel_callback)
 
     def open_channel_contents_page(self, channel_list_item):
         if not channel_list_item.flags() & Qt.ItemIsEnabled:
@@ -593,8 +593,10 @@ class TriblerWindow(QMainWindow):
             self.discovering_page.is_discovering = True
             self.stackedWidget.setCurrentIndex(PAGE_DISCOVERING)
         else:
-            self.clicked_menu_button_discovered()
-            self.left_menu_button_discovered.setChecked(True)
+            self.clicked_menu_button_downloads()
+        # else:
+            # self.clicked_menu_button_discovered()
+            # self.left_menu_button_discovered.setChecked(True)
 
         # self.channels_menu_list.load_channels()
 
@@ -614,7 +616,7 @@ class TriblerWindow(QMainWindow):
         self.discovering_page.is_discovering = False
         if self.stackedWidget.currentIndex() == PAGE_DISCOVERING:
             self.clicked_menu_button_discovered()
-            self.left_menu_button_discovered.setChecked(True)
+            # self.left_menu_button_discovered.setChecked(True)
 
     def on_events_started(self, json_dict):
         self.setWindowTitle(f"Tribler {json_dict['version']}")
@@ -1041,14 +1043,14 @@ class TriblerWindow(QMainWindow):
             self.deselect_all_menu_buttons()
             self.stackedWidget.setCurrentIndex(PAGE_SEARCH_RESULTS)
 
-    def clicked_menu_button_discovered(self):
-        self.deselect_all_menu_buttons()
-        self.left_menu_button_discovered.setChecked(True)
-        if self.stackedWidget.currentIndex() == PAGE_DISCOVERED:
-            self.discovered_page.go_back_to_level(0)
-            self.discovered_page.reset_view()
-        self.stackedWidget.setCurrentIndex(PAGE_DISCOVERED)
-        self.discovered_page.content_table.setFocus()
+    # def clicked_menu_button_discovered(self):
+    #     self.deselect_all_menu_buttons()
+    #     self.left_menu_button_discovered.setChecked(True)
+    #     if self.stackedWidget.currentIndex() == PAGE_DISCOVERED:
+    #         self.discovered_page.go_back_to_level(0)
+    #         self.discovered_page.reset_view()
+    #     self.stackedWidget.setCurrentIndex(PAGE_DISCOVERED)
+    #     self.discovered_page.content_table.setFocus()
 
     def clicked_menu_button_popular(self):
         self.deselect_all_menu_buttons()

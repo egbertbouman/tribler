@@ -7,7 +7,7 @@ from pony.orm import db_session
 
 from tribler.core.components.database.db.tribler_database import TriblerDatabase, ResourceType, SHOW_THRESHOLD
 from tribler.core.components.database.db.tests.test_tribler_database import Resource, TestTagDB
-from tribler.core.components.metadata_store.db.orm_bindings.channel_node import NEW
+from tribler.core.components.metadata_store.db.orm_bindings.torrent_metadata import NEW
 from tribler.core.components.metadata_store.db.store import MetadataStore
 from tribler.core.components.metadata_store.remote_query_community.remote_query_community import RemoteQueryCommunity
 from tribler.core.components.metadata_store.remote_query_community.settings import RemoteQueryCommunitySettings

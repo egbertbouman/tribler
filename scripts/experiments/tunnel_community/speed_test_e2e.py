@@ -46,5 +46,5 @@ if __name__ == "__main__":
     parser.add_argument('--fragile', '-f', help='Fail at the first error', action='store_true')
     arguments = parser.parse_args()
 
-    service = Service(state_dir=Path('.Tribler'))
-    service.run(fragile=arguments.fragile)
+    service = Service(state_dir=Path.cwd() / 'tribler-statedir')
+    service.run(fragile=arguments.fragile, check_already_running=False)

@@ -33,6 +33,12 @@ class Service(TinyTriblerService, TaskManager):
         self.tunnels = component.community
         self.tunnels.settings.remove_tunnel_delay = 0
 
+        await self.wait_until_ready()
+        await self.build_and_test_circuit(EXPERIMENT_NUM_HOPS)
+        await self.shutdown_task_manager()
+        self._graceful_shutdown()
+
+    async def wait_until_ready(self):
         component = self.session.get_instance(Ipv8Component)
         self.rust = component.ipv8.endpoint
         if isinstance(self.rust, DispatcherEndpoint):
@@ -45,10 +51,6 @@ class Service(TinyTriblerService, TaskManager):
                 self.logger.info("Found %d exits and %d relays. Starting experiment.", len(exits), len(relays))
                 break
             await asyncio.sleep(1)
-
-        await self.build_and_test_circuit(EXPERIMENT_NUM_HOPS)
-        await self.shutdown_task_manager()
-        self._graceful_shutdown()
 
     async def build_and_test_circuit(self, hops, peer=None, retries=3):
         circuit = None

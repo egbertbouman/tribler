@@ -3,7 +3,7 @@ library(reshape2)
 
 speed_test_exit <- read.table("speed_test_e2e.txt", header=T, quote="\"")
 
-upload_speeds <- subset(speed_test_exit, Type == 1)
+upload_speeds <- subset(speed_test_exit, Type == 0)
 p <- ggplot(upload_speeds, aes(x=Time, y=Speed, colour=factor(Circuit), group=Circuit)) +
     geom_line() +
     scale_colour_discrete(name="Circuit") +
@@ -13,7 +13,7 @@ p <- ggplot(upload_speeds, aes(x=Time, y=Speed, colour=factor(Circuit), group=Ci
 p
 ggsave("speed_test_e2e_upload.png", width=10, height=6, dpi=100)
 
-download_speeds <- subset(speed_test_exit, Type == 0)
+download_speeds <- subset(speed_test_exit, Type == 1)
 p <- ggplot(download_speeds, aes(x=Time, y=Speed, colour=factor(Circuit), group=Circuit)) +
     geom_line() +
     scale_colour_discrete(name="Circuit") +

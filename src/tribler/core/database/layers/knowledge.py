@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Callable, Iterator, List, Set
 
 from pony import orm
 from pony.orm import raw_sql
-from pony.orm.core import Database, Entity, Query, select
+from pony.orm.core import Database, Entity, Query, select, UnrepeatableReadError
 from pony.utils import between
 
 from tribler.core.database.layers.layer import EntityImpl, Layer
@@ -443,9 +443,14 @@ class KnowledgeDataAccessLayer(Layer):
             case_sensitive=case_sensitive,
         )
 
-        return [SimpleStatement(subject_type=s.subject.type, subject=s.subject.name, predicate=s.object.type,
-                                object=s.object.name)
-                for s in statements]
+        results = []
+        for s in statements:
+            try:
+                results.append(SimpleStatement(subject_type=s.subject.type, subject=s.subject.name,
+                                               predicate=s.object.type, object=s.object.name))
+            except UnrepeatableReadError as e:
+                self.logger.exception(e)
+        return results
 
     def get_suggestions(self, subject_type: ResourceType | None = None, subject: str | None = "",
                         predicate: ResourceType | None = None, case_sensitive: bool = True) -> List[str]:

@@ -6,7 +6,7 @@ from ipv8.community import Community, CommunitySettings
 from ipv8.keyvault.private.libnaclkey import LibNaCLSK
 from ipv8.lazy_community import lazy_wrapper
 from ipv8.types import Key, Peer
-from pony.orm import db_session
+from pony.orm import db_session, UnrepeatableReadError
 
 from tribler.core.database.layers.knowledge import Operation, ResourceType
 from tribler.core.database.tribler_database import TriblerDatabase
@@ -128,6 +128,8 @@ class KnowledgeCommunity(Community):
                     sent_operations.append(operation)
                 except ValueError as e:  # validation error
                     self.logger.warning(e)
+                except UnrepeatableReadError as e:  # database error
+                    self.logger.exception(e)
             if sent_operations:
                 sent_tags_info = ", ".join(f"({t})" for t in sent_operations)
                 self.logger.debug("-> sent operations (%s) to peer: %s", sent_tags_info, peer.mid.hex())

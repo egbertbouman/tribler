@@ -78,7 +78,7 @@ export default function General() {
     );
 
     return (
-        <div className="w-full h-full flex flex-col">
+        <div className="bg-background w-full h-full flex flex-col">
             <SimpleTable data={stats} columns={generalColumns} />
             <div className="flex-none bg-neutral-100 dark:bg-neutral-900 border-y pl-3 py-2 text-sm font-medium flex items-center">
                 <span className="text-muted-foreground flex-none">Logs</span>

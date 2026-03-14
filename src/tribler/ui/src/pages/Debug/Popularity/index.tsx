@@ -62,7 +62,7 @@ export default function Popularity() {
     );
 
     return (
-        <Tabs defaultValue="local" className="w-full flex flex-col flex-wrap">
+        <Tabs defaultValue="local" className="bg-background w-full flex flex-col flex-wrap">
             <TabsList className="flex-rows-4 border-b">
                 <TabsTrigger value="local">Local</TabsTrigger>
                 <TabsTrigger value="remote">Remote</TabsTrigger>

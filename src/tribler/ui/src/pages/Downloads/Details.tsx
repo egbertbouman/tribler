@@ -30,7 +30,7 @@ export default function DownloadDetails({download}: {download: Download | undefi
     if (!download) return null;
 
     return (
-        <Tabs ref={tabsRef} defaultValue="details" className="w-full">
+        <Tabs ref={tabsRef} defaultValue="details" className="w-full bg-background">
             <TabsList className="flex flex-1 flex-cols-4 border-b">
                 <TabsTrigger value="details">{t("Details")}</TabsTrigger>
                 <TabsTrigger value="files">{t("Files")}</TabsTrigger>

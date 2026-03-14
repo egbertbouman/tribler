@@ -7,7 +7,7 @@ import Peers from "./Peers";
 
 export default function Tunnels() {
     return (
-        <Tabs defaultValue="circuits" className="w-full flex flex-col">
+        <Tabs defaultValue="circuits" className="bg-background w-full flex flex-col">
             <TabsList className="flex-cols-5 border-b">
                 <TabsTrigger value="circuits">Circuits</TabsTrigger>
                 <TabsTrigger value="relays">Relays</TabsTrigger>

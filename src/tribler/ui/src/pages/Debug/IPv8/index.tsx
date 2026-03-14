@@ -4,7 +4,7 @@ import Details from "./Details";
 
 export default function IPv8() {
     return (
-        <Tabs defaultValue="overlays" className="w-full flex flex-col flex-wrap">
+        <Tabs defaultValue="overlays" className="bg-background w-full flex flex-col flex-wrap">
             <TabsList className="flex-rows-3 border-b">
                 <TabsTrigger value="overlays">Peers</TabsTrigger>
                 <TabsTrigger value="details">Traffic</TabsTrigger>

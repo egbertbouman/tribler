@@ -37,10 +37,10 @@ import {
 } from "@/components/ui/context-menu";
 import MoveStorage from "@/dialogs/MoveStorage";
 import ConfirmRemove from "@/dialogs/ConfirmRemove";
-import {VideoDialog} from "@/dialogs/Videoplayer";
 import {filterActive, filterInactive} from ".";
 import {EasyTooltip} from "@/components/ui/tooltip";
 import DisableAnonymity from "@/dialogs/DisableAnonymity";
+import {useLocation, useNavigate} from "react-router-dom";
 
 const defaultLimits = [5 * 1024, 15 * 1024, 50 * 1024, 100 * 1024, 150 * 1024, -1];
 
@@ -295,6 +295,8 @@ export function ActionButtons({selectedDownloads, onClick}: {selectedDownloads: 
 
 export function ActionMenu({selectedDownloads, onClick}: {selectedDownloads: Download[]; onClick?: () => void}) {
     const {t} = useTranslation();
+    const navigate = useNavigate();
+    const location = useLocation();
 
     const uploadLimitRef = useRef<HTMLInputElement | null>(null);
     const downloadLimitRef = useRef<HTMLInputElement | null>(null);
@@ -303,8 +305,6 @@ export function ActionMenu({selectedDownloads, onClick}: {selectedDownloads: Dow
     const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
     const [storageDialogOpen, setStorageDialogOpen] = useState(false);
     const [anonymityDialogOpen, setAnonymityDialogOpen] = useState(false);
-    const [videoDialogOpen, setVideoDialogOpen] = useState<boolean>(false);
-    const [videoDownload, setVideoDownload] = useState<Download | null>(null);
 
     return (
         <>
@@ -342,8 +342,9 @@ export function ActionMenu({selectedDownloads, onClick}: {selectedDownloads: Dow
                         onClick={() => {
                             console.log("Streaming...", selectedDownloads[0]);
                             if (selectedDownloads.length == 1) {
-                                setVideoDialogOpen(true);
-                                setVideoDownload(selectedDownloads[0]);
+                                navigate(`/stream/${selectedDownloads[0].infohash}`, {
+                                    state: {override_menu: location.pathname},
+                                });
                             }
                         }}
                         disabled={selectedDownloads.length !== 1 || selectedDownloads[0].streamable !== true}>
@@ -608,7 +609,6 @@ export function ActionMenu({selectedDownloads, onClick}: {selectedDownloads: Dow
                 selectedDownloads={selectedDownloads}
                 onRemove={removeDownloads}
             />
-            <VideoDialog open={videoDialogOpen} onOpenChange={setVideoDialogOpen} download={videoDownload} />
         </>
     );
 }

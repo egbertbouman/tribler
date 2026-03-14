@@ -185,7 +185,7 @@ export default function Search() {
                     uri={getMagnetLink(torrentClicked.infohash, torrentClicked.name, torrentClicked.trackers)}
                 />
             )}
-            <div className="grid grid-cols-1 w-full">
+            <div className="bg-background grid grid-cols-1 w-full">
                 <div ref={extremeWarning} className="bg-red-700 border-2 border-black p-2 text-white font-mono">⚠ You have triggered our extremist, violent, or terrorist content filter. Warning: law enforcement actively monitors Internet searches of this type. So Tribler does not support it. ⚠</div>
                 <SimpleTable
                     className="[&>[data-radix-scroll-area-viewport]]:max-h-[calc(100vh-82px)]"

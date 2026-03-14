@@ -109,7 +109,7 @@ export default function Popular() {
                 />
             )}
             <SimpleTable
-                className="[&>[data-radix-scroll-area-viewport]]:max-h-[calc(100vh-82px)]"
+                className="bg-background [&>[data-radix-scroll-area-viewport]]:max-h-[calc(100vh-82px)]"
                 data={torrents}
                 columns={torrentColumns}
                 storeSortingState="popular-sorting"

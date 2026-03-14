@@ -5,7 +5,7 @@ import SlowTasks from "./SlowTasks";
 
 export default function IPv8() {
     return (
-        <Tabs defaultValue="tasks" className="w-full flex flex-col flex-wrap">
+        <Tabs defaultValue="tasks" className="bg-background w-full flex flex-col flex-wrap">
             <TabsList className="flex-rows-3 border-b">
                 <TabsTrigger value="tasks">Tasks</TabsTrigger>
                 <TabsTrigger value="slow">Slow tasks</TabsTrigger>

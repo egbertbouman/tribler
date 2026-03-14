@@ -94,6 +94,7 @@ class Arguments(typing.TypedDict):
     torrent: str
     log_level: str
     server: bool
+    standalone: bool
 
 
 def parse_args() -> Arguments:
@@ -108,6 +109,8 @@ def parse_args() -> Arguments:
                         dest="log_level")
     parser.add_argument("-s", "--server", action="store_true",
                         help="Run headless as a server without graphical pystray interface")
+    parser.add_argument("--standalone", action="store_true",
+                        help="Run with a standalone window")
     return vars(parser.parse_args())
 
 
@@ -286,14 +289,13 @@ def spawn_tray_icon(session: Session, config: TriblerConfigManager) -> Icon:
     return icon
 
 
-async def main() -> bool:
+async def main(parsed_args: Arguments) -> bool:
     """
     The main script entry point.
 
     :returns: Whether we wish to restart the process.
     """
     try:
-        parsed_args = parse_args()
         config = init_config(parsed_args)
 
         logger.info("Creating session. API port: %d. API key: %s.", config.get("api/http_port"), config.get("api/key"))
@@ -303,11 +305,13 @@ async def main() -> bool:
         server_url, initial_message = await session.find_api_server()
 
         headless = parsed_args.get("server") | config.get("headless")
+        standalone = parsed_args.get("standalone")
         if server_url:
             logger.info("Core already running at %s", server_url)
             # Don't open a new tab if we're (a) only adding a torrent with a session open, or (b) running headless.
-            if not headless and (not torrent_uri or (initial_message is not None
-                                                     and json.loads(initial_message).get("sessions", "0") == "0")):
+            if not headless and not standalone and \
+                    (not torrent_uri or (initial_message is not None
+                                         and json.loads(initial_message).get("sessions", "0") == "0")):
                 open_webbrowser_tab(server_url + f"?key={config.get('api/key')}")
             # Block this process until our download has been delivered.
             if torrent_uri:
@@ -321,7 +325,12 @@ async def main() -> bool:
         show_error(exc, True)
 
     server_url, _ = await session.find_api_server()
-    icon = None if headless else spawn_tray_icon(session, config)
+    icon = None
+    if standalone:
+        from tribler.ui.qt_window import spawn_qt_window
+        spawn_qt_window(session, config)
+    elif not headless:
+        icon = spawn_tray_icon(session, config)
 
     if server_url and torrent_uri:
         # Don't block a "shutdown" event while waiting for a GUI that may never come.
@@ -337,11 +346,19 @@ async def main() -> bool:
 
 
 if __name__ == "__main__":
-    if sys.platform == "win32":
+    loop_factory = None
+    parsed_args = parse_args()
+    if parsed_args.get("standalone"):
+        from PySide6.QtWidgets import QApplication
+        from qasync import QEventLoop
+        app = QApplication(sys.argv)
+        loop_factory = lambda: QEventLoop(app)
+    elif sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
     __restart = True
     while __restart:
-        __restart = asyncio.run(main())
+        __restart = asyncio.run(main(parsed_args), loop_factory=loop_factory)
         if __restart:
             import gc
             gc.collect()

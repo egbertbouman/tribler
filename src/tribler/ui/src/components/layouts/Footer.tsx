@@ -70,7 +70,7 @@ export function Footer() {
     }, []);
 
     return (
-        <div className="border-t-[1px] border-neutral-300 dark:border-neutral-500 justify-items-end bottom-0">
+        <div className="border-t-[1px] border-neutral-300 dark:border-neutral-500 justify-items-end bottom-0 bg-background">
             <div className="h-6 flex flex-row items-center">
                 <div className="flex items-stretch"></div>
 

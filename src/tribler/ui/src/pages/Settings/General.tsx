@@ -69,7 +69,7 @@ export default function General() {
     }, []);
 
     return (
-        <div className="p-5 w-full">
+        <div className="bg-background p-5 w-full">
             <div className="pb-2 font-semibold">{t("WebServerSettings")}</div>
             <div className="py-2 flex items-center">
                 <Label htmlFor="http_port" className="whitespace-nowrap pr-5">

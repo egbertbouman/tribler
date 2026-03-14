@@ -1,3 +1,4 @@
+import {useEffect} from "react";
 import {RouterProvider} from "react-router-dom";
 import {ThemeProvider} from "./contexts/ThemeContext";
 import {router} from "./Router";
@@ -6,6 +7,7 @@ import {useTranslation} from "react-i18next";
 import {triblerService} from "@/services/tribler.service";
 
 import "./i18n";
+import { FullscreenProvider } from "./contexts/FullScreen";
 
 function collapseError() {
     const error_popup = document.querySelector("#error_popup");
@@ -57,6 +59,20 @@ function searchError() {
 export default function App() {
     const {t} = useTranslation();
 
+    useEffect(() => {
+        const win = window as any;
+        if (win.qt) {
+            new win.QWebChannel(win.qt.webChannelTransport, (channel: any) => {
+                win.pybridge = channel.objects.pybridge;
+
+                // Tell Python we're ready, so it can hide the loading message.
+                requestAnimationFrame(() => {
+                    win.pybridge.ui_is_ready();
+                });
+            });
+        }
+    }, []);
+
     return (
         <>
             <div
@@ -91,7 +107,9 @@ export default function App() {
                 </div>
             </div>
             <ThemeProvider>
-                <RouterProvider router={router} />
+                <FullscreenProvider>
+                    <RouterProvider router={router} />
+                </FullscreenProvider>
             </ThemeProvider>
         </>
     );

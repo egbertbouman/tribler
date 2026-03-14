@@ -60,7 +60,7 @@ export default function Connection() {
     }, []);
 
     return (
-        <div className="p-5 w-full">
+        <div className="bg-background p-5 w-full">
             <div className="grid grid-cols-2 gap-2 items-center">
                 <div className="pb-2 font-semibold col-span-2">{t("P2PSettings")}</div>
 

@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import {NavLink, Outlet, useLocation, useNavigate} from "react-router-dom";
 import {Header} from "./Header";
 import {Accordion} from "@radix-ui/react-accordion";
@@ -12,12 +12,14 @@ import {HamburgerMenuIcon} from "@radix-ui/react-icons";
 import {AddTorrent} from "../add-torrent";
 import {useTranslation} from "react-i18next";
 import {Footer} from "./Footer";
+import {useFullscreen} from "@/contexts/FullScreen";
 
 export function SideLayout() {
     const {t} = useTranslation();
     const location = useLocation();
     const navigate = useNavigate();
     const [history, setHistory] = useState(new Map());
+    const {isFullscreen} = useFullscreen();
     const [accordionValue, setAccordionValue] = useState(() => {
         return (
             "item-" +
@@ -25,8 +27,10 @@ export function SideLayout() {
                 item.items !== undefined
                     ? item.items
                           .filter((subitem) => subitem.to !== undefined)
-                          .map((subitem) => subitem.to)
-                          .includes(location.pathname)
+                          .some(
+                              (subitem) =>
+                                  subitem.to === location.pathname || subitem.to === location.state?.override_menu
+                          )
                     : false
             )
         );
@@ -35,9 +39,11 @@ export function SideLayout() {
 
     return (
         <div className="flex-grow flex flex-col">
-            <Header />
-            <div className="flex-grow container px-0 flex flex-col md:flex-row md:space-x-4 lg:space-x-4 md:pl-6">
-                <div>
+            <div className={isFullscreen ? "hidden" : ""}>
+                <Header />
+            </div>
+            <div className="flex-grow container px-0 flex flex-col md:flex-row md:space-x-4 lg:space-x-4">
+                <div className={`md:pl-6 bg-background ${isFullscreen ? "hidden" : ""}`}>
                     <div className="pt-6 md:hidden">
                         <Button
                             variant="outline"
@@ -48,7 +54,7 @@ export function SideLayout() {
                         </Button>
                     </div>
                     <aside
-                        className={cn("md:-mx-4 md:w-[16rem] border-r h-full pr-2", showNav ? "" : "hidden md:block")}>
+                        className={cn("bg-background md:-mx-4 md:w-[16rem] border-r h-full pr-2", showNav ? "" : "hidden md:block")}>
                         <Accordion
                             type="single"
                             collapsible
@@ -65,10 +71,11 @@ export function SideLayout() {
                                                 <AccordionTrigger
                                                     className={cn(
                                                         buttonVariants({variant: "ghost"}),
-                                                        item.items
-                                                            .filter((subitem) => subitem.to !== undefined)
-                                                            .map((subitem) => subitem.to)
-                                                            .includes(location.pathname)
+                                                        item.items.some(
+                                                            (subitem) =>
+                                                                subitem.to === location.pathname ||
+                                                                subitem.to === location.state?.override_menu
+                                                        )
                                                             ? "bg-accent"
                                                             : "hover:bg-accent",
                                                         "justify-between hover:no-underline"
@@ -105,7 +112,11 @@ export function SideLayout() {
                                                                     className={({isActive}) =>
                                                                         cn(
                                                                             buttonVariants({variant: "ghost"}),
-                                                                            isActive ? "bg-accent" : "hover:bg-accent",
+                                                                            isActive ||
+                                                                                location.state?.override_menu ===
+                                                                                    submenu.to
+                                                                                ? "bg-accent"
+                                                                                : "hover:bg-accent",
                                                                             "justify-start py-1.5 px-3 pl-4 h-auto font-normal"
                                                                         )
                                                                     }>
@@ -128,13 +139,15 @@ export function SideLayout() {
                                                     setAccordionValue("");
                                                     setShowNav(false);
                                                 }}
-                                                className={({isActive}) =>
-                                                    cn(
+                                                className={({isActive}) => {
+                                                    return cn(
                                                         buttonVariants({variant: "ghost"}),
-                                                        isActive ? "bg-accent" : "hover:bg-accent",
+                                                        isActive || location.state?.override_menu === item.to
+                                                            ? "bg-accent"
+                                                            : "hover:bg-accent",
                                                         "justify-start"
-                                                    )
-                                                }>
+                                                    );
+                                                }}>
                                                 {item.icon && <item.icon className="mr-2" />} {t(item.title)}
                                             </NavLink>
                                         ) : item.title !== "" ? (
@@ -157,7 +170,9 @@ export function SideLayout() {
                     </div>
                 </div>
             </div>
-            <Footer />
+            <div className={isFullscreen ? "hidden" : ""}>
+                <Footer />
+            </div>
         </div>
     );
 }

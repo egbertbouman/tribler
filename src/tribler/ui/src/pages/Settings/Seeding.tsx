@@ -27,7 +27,7 @@ export default function Seeding() {
     }, []);
 
     return (
-        <div className="p-6 w-full">
+        <div className="bg-background p-6 w-full">
             <RadioGroup
                 value={settings?.libtorrent?.download_defaults?.seeding_mode || "forever"}
                 onValueChange={(value) => {

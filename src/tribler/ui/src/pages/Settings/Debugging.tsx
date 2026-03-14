@@ -25,7 +25,7 @@ export default function Debugging() {
     }, []);
 
     return (
-        <div className="p-6">
+        <div className="bg-background p-6 w-full">
             <div className="flex items-center space-x-2 p-2">
                 <Checkbox
                     checked={settings?.ui?.dev_mode === true}

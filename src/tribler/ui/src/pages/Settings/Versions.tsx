@@ -127,7 +127,7 @@ export default function Versions() {
     }, 5000);
 
     return (
-        <div className="p-6">
+        <div className="bg-background p-6 w-full">
             <div className="grid grid-cols-4 gap-2 items-center">
                 <Label className="whitespace-nowrap pr-5 font-bold" key="current_version_header">
                     {t("VersionCurrent")}:

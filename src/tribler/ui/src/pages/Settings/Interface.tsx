@@ -29,7 +29,7 @@ export default function Interface() {
     ];
 
     return (
-        <div className="p-6 w-full">
+        <div className="bg-background p-6 w-full">
             <div className="pb-4">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>

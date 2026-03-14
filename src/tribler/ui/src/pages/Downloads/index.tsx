@@ -343,7 +343,7 @@ export default function Downloads({statusFilter}: {statusFilter: number[]}) {
 
     return (
         <ResizablePanelGroup direction="vertical">
-            <ResizablePanel defaultSize={75} className="min-h-[50px]" id="download-list">
+            <ResizablePanel defaultSize={75} className="bg-background min-h-[50px]" id="download-list">
                 <div className="space-y-6 min-h-[200px]">
                     <Card className="border-none shadow-none">
                         <CardHeader className="md:flex-row md:justify-between space-y-0 items-center px-4 py-1.5">

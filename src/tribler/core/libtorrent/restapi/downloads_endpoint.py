@@ -74,6 +74,7 @@ class DownloadsEndpoint(RESTEndpoint):
         super().__init__()
         self.download_manager = download_manager
         self.tunnel_community = tunnel_community
+        self.gui_window: Any = None
         self.app.add_routes([
             web.get("", self.get_downloads),
             web.put("", self.add_download),

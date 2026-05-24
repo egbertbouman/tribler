@@ -1,0 +1,124 @@
+name: Build Standalone
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            architecture: x64
+    runs-on: ${{ matrix.os }}
+    steps:
+
+      #######################
+      # Package preparation #
+      #######################
+      - name: Check-out repository
+        uses: actions/checkout@v6
+        with:
+          submodules: 'true'
+          fetch-tags: 'true'
+      - name: Remove test files
+        shell: bash
+        run: |
+          rm -rf doc
+          rm -rf scripts
+
+          rm src/run_unit_tests.py
+          rm -rf src/tribler/test_integration
+          rm -rf src/tribler/test_unit
+
+          rm -rf pyipv8/.github
+          rm pyipv8/.gitignore
+          rm pyipv8/.gitmodules
+          rm pyipv8/.readthedocs.yaml
+          rm pyipv8/.ruff.toml
+          rm pyipv8/*.md
+          rm pyipv8/*.ini
+          rm pyipv8/create_test_coverage_report.py
+          rm pyipv8/github_increment_version.py
+          rm pyipv8/run_all_tests.py
+          rm pyipv8/setup.py
+          rm -rf pyipv8/doc
+          rm -rf pyipv8/scripts
+          rm -rf pyipv8/stresstest
+          rm -rf pyipv8/systemd
+          rm -rf pyipv8/ipv8/test
+      - name: Setup Python ${{ matrix.architecture }}
+        if: matrix.architecture != 'aarch64'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          architecture: ${{ matrix.architecture }}
+          cache: 'pip'
+          cache-dependency-path: |
+            **/build/requirements.txt
+      - name: Install Dependencies
+        if: matrix.architecture != 'aarch64'
+        shell: bash
+        run: |
+          pip install --upgrade -r build/requirements.txt
+          if [ "${{ matrix.mode }}" = "standalone" ]; then
+            pip install PySide6 python-mpv
+          fi
+      - name: Stamp release
+        shell: python
+        env:
+          GITHUB_BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          import fileinput, os
+          with fileinput.input('src/tribler/ui/src/pages/Settings/Versions.tsx', inplace=True) as file:
+            for line in file:
+              new_line = line.replace('<Label key="version_build_stamp"></Label>',
+                                      f'<Label key="version_build_stamp">build #{os.getenv("GITHUB_BUILD_NUMBER")}</Label>')
+              print(new_line, end='')
+      - name: Setup npm
+        uses: actions/setup-node@v6
+      - name: Build npm
+        shell: bash
+        run: |
+          cd src/tribler/ui/
+          npm install
+          npm run build
+          rm -rf node_modules
+      - name: Determine release tag
+        shell: bash
+        run: |
+          git fetch --no-tags origin 'refs/tags/v*:refs/tags/v*'
+          git for-each-ref --count=1 --sort=-creatordate --format '%(refname)' refs/tags > raw_tag.txt
+          GITHUB_TAG=$(git name-rev --tags --name-only $(cat raw_tag.txt))
+          echo "GITHUB_TAG=${GITHUB_TAG#v}" >> $GITHUB_ENV
+
+      #####################
+      # Individual builds #
+      #####################
+      - name: Build Executables (Ubuntu x64)
+        if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'x64'
+        env:
+          TRIBLER_BUILD_MODE: standalone
+        run: |
+          sudo apt-get update -q -y
+          sudo apt-get install -y --allow-downgrades alien devscripts fakeroot gir1.2-gtk-3.0 libgirepository1.0-dev rpm libmpv-dev mpv libcairo2-dev pkg-config
+          ./build/debian/makedist_debian.sh
+          
+          cd build/debian
+          sudo apt-get install -y --fix-broken ./tribler-standalone_${GITHUB_TAG}_all.deb
+          timeout 10s tribler -s || true
+          cat /tmp/*tribler*.log
+          
+          mv tribler-standalone_${GITHUB_TAG}_all.deb tribler-standalone_${GITHUB_TAG}_x64.deb
+
+
+      ################################
+      # Cleanup and artifact uploads #
+      ################################
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ runner.os }} ${{ matrix.architecture }}${{ matrix.mode == 'standalone' && ' Standalone' || '' }} Build
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            build/debian/*.deb
+            dist/*.apk

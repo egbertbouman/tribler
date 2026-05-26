@@ -19,7 +19,7 @@ jobs:
       - name: Install NSIS
         if: matrix.os == 'windows-latest'
         run: |
-          Invoke-WebRequest https://deac-riga.dl.sourceforge.net/project/nsis/NSIS%203/3.10/nsis-3.10.zip?viasf=1 -OutFile C:\WINDOWS\Temp\nsis-3.10.zip
+          curl -L "https://downloads.sourceforge.net/project/nsis/NSIS%203/3.10/nsis-3.10.zip" -o C:\WINDOWS\Temp\nsis-3.10.zip
           Expand-Archive -LiteralPath "C:\WINDOWS\Temp\nsis-3.10.zip" -DestinationPath "C:\WINDOWS\Temp\unzip-nsis-3.10"
           Move-Item -Path "C:\WINDOWS\Temp\unzip-nsis-3.10\nsis-3.10" -Destination "C:\Program Files (x86)\NSIS"
       - name: Check out SimpleFC repository (Windows)
@@ -98,7 +98,7 @@ jobs:
         shell: bash
         run: |
           pip install --upgrade -r build/requirements.txt
-          pip install PySide6 python-mpv
+          pip install PySide6 python-mpv qasync
       - name: Stamp release
         shell: python
         env:
@@ -145,8 +145,17 @@ jobs:
           cat /tmp/*tribler*.log
           
           mv tribler-standalone_${GITHUB_TAG}_all.deb tribler-standalone_${GITHUB_TAG}_x64.deb
+      - name: Fetch MPV
+        if: matrix.os == 'windows-latest'
+        run: |
+          curl -L "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20260525/mpv-dev-x86_64-20260525-git-1ac687d.7z" -o C:\Temp_mpv.7z
+          7z e C:\Temp_mpv.7z *.dll -osrc -r -y
+          if (Test-Path src\libmpv-*.dll) { Move-Item src\libmpv-*.dll src\mpv-1.dll -Force }
+          if (Test-Path src\mpv-*.dll) { Move-Item src\mpv-*.dll src\mpv-1.dll -Force }
       - name: Build Executables (Windows)
         if: matrix.os == 'windows-latest'
+        env:
+          TRIBLER_BUILD_MODE: standalone
         run: |
           ./build/win/makedist_win.bat
 

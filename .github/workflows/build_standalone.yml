@@ -8,8 +8,47 @@ jobs:
         include:
           - os: ubuntu-latest
             architecture: x64
+          - os: windows-latest
+            architecture: x64
     runs-on: ${{ matrix.os }}
     steps:
+
+      ########################################
+      # NSIS installer (Windows, always x86) #
+      ########################################
+      - name: Install NSIS
+        if: matrix.os == 'windows-latest'
+        run: |
+          Invoke-WebRequest https://deac-riga.dl.sourceforge.net/project/nsis/NSIS%203/3.10/nsis-3.10.zip?viasf=1 -OutFile C:\WINDOWS\Temp\nsis-3.10.zip
+          Expand-Archive -LiteralPath "C:\WINDOWS\Temp\nsis-3.10.zip" -DestinationPath "C:\WINDOWS\Temp\unzip-nsis-3.10"
+          Move-Item -Path "C:\WINDOWS\Temp\unzip-nsis-3.10\nsis-3.10" -Destination "C:\Program Files (x86)\NSIS"
+      - name: Check out SimpleFC repository (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/checkout@v6
+        with:
+          repository: mazinsw/SimpleFC
+      - name: Build SimpleFC NSIS Plugin (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          copy "bin\x86-unicode\SimpleFC.dll" "C:\Program Files (x86)\NSIS\Plugins\x86-unicode\SimpleFC.dll"
+      - name: Check out nsProcess repository (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/checkout@v6
+        with:
+          repository: simdsoft/nsProcess
+          submodules: 'true'
+      - name: Add msbuild to PATH (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: microsoft/setup-msbuild@v2
+      - name: Build nsProcess NSIS Plugin (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd nsProcess
+          msbuild nsProcess.vcxproj /p:PlatformToolset=v143 /p:Configuration="Release UNICODE"
+          copy "Release UNICODE\nsProcess.dll" "C:\Program Files (x86)\NSIS\Plugins\x86-unicode\nsProcess.dll"
+          cd ../Include
+          New-Item -ItemType Directory -Force -Path "C:\Program Files (x86)\NSIS\Include"
+          copy nsProcess.nsh "C:\Program Files (x86)\NSIS\Include\nsProcess.nsh"
 
       #######################
       # Package preparation #
@@ -59,9 +98,7 @@ jobs:
         shell: bash
         run: |
           pip install --upgrade -r build/requirements.txt
-          if [ "${{ matrix.mode }}" = "standalone" ]; then
-            pip install PySide6 python-mpv
-          fi
+          pip install PySide6 python-mpv
       - name: Stamp release
         shell: python
         env:
@@ -108,7 +145,10 @@ jobs:
           cat /tmp/*tribler*.log
           
           mv tribler-standalone_${GITHUB_TAG}_all.deb tribler-standalone_${GITHUB_TAG}_x64.deb
-
+      - name: Build Executables (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          ./build/win/makedist_win.bat
 
       ################################
       # Cleanup and artifact uploads #
@@ -116,7 +156,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ runner.os }} ${{ matrix.architecture }}${{ matrix.mode == 'standalone' && ' Standalone' || '' }} Build
+          name: ${{ runner.os }}-${{ matrix.architecture }}-Standalone-Build
           path: |
             dist/*.exe
             dist/*.dmg

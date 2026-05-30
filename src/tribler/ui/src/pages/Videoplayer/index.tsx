@@ -10,8 +10,8 @@ import {usePrevious} from "@/hooks/usePrevious";
 import {triblerService} from "@/services/tribler.service";
 import {isErrorDict} from "@/services/reporting";
 import {VideoJS} from "./VideoJS";
-import Qt from "./Qt";
-import {useFullscreen} from "@/contexts/FullScreen";
+import MPVPlaceHolder from "./MPV";
+import { Icons } from "@/components/icons";
 
 export default function VideoPlayer() {
     const navigate = useNavigate();
@@ -20,13 +20,17 @@ export default function VideoPlayer() {
     const file = fileString ? Number(fileString) : undefined;
 
     const prevInfohash = usePrevious(infohash);
-
-    const [isQt] = useState(typeof (window as any).qt !== "undefined");
-    const {isFullscreen, setFullscreen} = useFullscreen();
+    const [hasMPV, setHasMPV] = useState<boolean | null>(null);
 
     const [open, setOpen] = useState(false);
     const [videoFiles, setVideoFiles] = useState<File[]>([]);
     const selectedFile = videoFiles.find((f) => f.index === file);
+
+    useEffect(() => {
+        triblerService.getPlayerStatus()
+            .then(status => setHasMPV(!!status?.has_mpv))
+            .catch(() => setHasMPV(false));
+    }, []);
 
     useEffect(() => {
         if (!infohash) {
@@ -58,8 +62,12 @@ export default function VideoPlayer() {
 
     return (
         <div className="w-full h-full flex flex-col overflow-hidden">
-            <div className="w-full flex flex-col h-full">
-                {!isFullscreen && (
+            {hasMPV === null ? (
+                <div className="flex items-center justify-center flex-1 bg-background">
+                    <Icons.spinner className="h-6 w-6 mx-3" />
+                </div>
+            ) : (
+                <div className="w-full flex flex-col h-full">
                     <div className="flex items-center gap-1 w-full p-4 bg-background">
                         <Button
                             variant="ghost"
@@ -113,20 +121,20 @@ export default function VideoPlayer() {
                             </PopoverContent>
                         </Popover>
                     </div>
-                )}
 
-                {infohash && file !== undefined && !!selectedFile ? (
-                    isQt ? (
-                        <Qt infohash={infohash} file={file} />
+                    {infohash && file !== undefined && !!selectedFile ? (
+                        hasMPV ? (
+                            <MPVPlaceHolder infohash={infohash} file={file} />
+                        ) : (
+                            <VideoJS infohash={infohash} file={file} />
+                        )
                     ) : (
-                        <VideoJS infohash={infohash} file={file} />
-                    )
-                ) : (
-                    <div className="flex items-center justify-center h-64 bg-background text-white">
-                        File is not streamable
-                    </div>
-                )}
-            </div>
+                        <div className="flex items-center justify-center h-64 bg-background text-white">
+                            File is not streamable
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

@@ -58,6 +58,32 @@ export class TriblerService {
         this.events.removeEventListener(topic, listener);
     }
 
+    // MPV controls
+
+    async playVideo(infohash: string, fileindex: number): Promise<undefined | ErrorDict | any> {
+        try {
+            return (await this.http.post(`/downloads/${infohash}/play/${fileindex}`)).data;
+        } catch (error) {
+            return formatAxiosError(error as Error | AxiosError);
+        }
+    }
+
+    async shutdownVideo(): Promise<undefined | ErrorDict | any> {
+        try {
+            return (await this.http.post("/downloads/player/shutdown")).data;
+        } catch (error) {
+            return formatAxiosError(error as Error | AxiosError);
+        }
+    }
+
+    async getPlayerStatus(): Promise<undefined | ErrorDict | any> {
+        try {
+            return (await this.http.get("/downloads/player/status")).data;
+        } catch (error) {
+            return formatAxiosError(error as Error | AxiosError);
+        }
+    }
+
     // Downloads
 
     async getDownloads(

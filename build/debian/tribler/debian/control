@@ -11,6 +11,8 @@ Vcs-Git: https://github.com/trible/tribler.git
 Package: tribler
 Architecture: all
 Depends: libsodium23,
+         libmpv1 | libmpv2,
+         mpv,
          gir1.2-gtk-4.0 | gir1.2-gtk-3.0,
          gir1.2-appindicator3-0.1 | gir1.2-ayatanaappindicator3-0.1
 Description: Python based Bittorrent/Internet TV application

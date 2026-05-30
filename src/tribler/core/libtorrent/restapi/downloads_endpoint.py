@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import mimetypes
-from asyncio import get_event_loop, shield
+from asyncio import get_event_loop, shield, Lock, sleep
 from binascii import hexlify, unhexlify
 from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict, cast
@@ -40,6 +40,14 @@ if TYPE_CHECKING:
     from tribler.core.libtorrent.download_manager.stream import Stream
     from tribler.core.tunnel.community import TriblerTunnelCommunity
 
+try:
+    import mpv
+    HAS_PYTHON_MPV = True
+except (ImportError, OSError):
+    # OSError covers cases where the python package is installed,
+    # but the system is missing the underlying C library (libmpv)
+    HAS_PYTHON_MPV = False
+
 TOTAL = "total"
 LOADED = "loaded"
 ALL_LOADED = "all_loaded"
@@ -74,6 +82,10 @@ class DownloadsEndpoint(RESTEndpoint):
         super().__init__()
         self.download_manager = download_manager
         self.tunnel_community = tunnel_community
+        self.mpv_lock = Lock()
+        self.native_player = None
+        self.loop = get_event_loop()
+        self.is_closing = False
         self.app.add_routes([
             web.get("", self.get_downloads),
             web.put("", self.add_download),
@@ -84,7 +96,11 @@ class DownloadsEndpoint(RESTEndpoint):
             web.delete("/{infohash}/trackers", self.remove_tracker),
             web.put("/{infohash}/tracker_force_announce", self.tracker_force_announce),
             web.get("/{infohash}/files", self.get_files),
-            web.get("/{infohash}/stream/{fileindex}", self.stream, allow_head=False)
+
+            web.get("/{infohash}/stream/{fileindex}", self.stream, allow_head=False),
+            web.post("/{infohash}/play/{fileindex}", self.stream_with_mpv),
+            web.get("/player/status", self.get_mpv_status),
+            web.post("/player/shutdown", self.shutdown_mpv)
         ])
 
     @staticmethod
@@ -920,6 +936,96 @@ class DownloadsEndpoint(RESTEndpoint):
             return DownloadsEndpoint.return_404()
 
         return TorrentStreamResponse(download, file_index)
+
+    async def stream_with_mpv(self, request):
+        infohash = request.match_info['infohash']
+        fileindex = request.match_info['fileindex']
+
+        host, port = request.url.host, request.url.port
+        api_key = (
+                request.headers.get("X-Api-Key") or
+                request.query.get("key") or
+                request.cookies.get("api_key")
+        )
+        stream_url = f"http://{host}:{port}/api/downloads/{infohash}/stream/{fileindex}?key={api_key}"
+
+        async with self.mpv_lock:
+            self.is_closing = False
+
+            # Reuse existing window if available
+            if self.native_player:
+                try:
+                    self.native_player.command('loadfile', stream_url, 'replace')
+                    await self.focus_player()
+                    return web.json_response({"status": "success", "message": "reusing MPV window"})
+                except Exception as e:
+                    self._logger.warning(f"Failed to reuse MPV player: {e}")
+                    await self._kill_active_players()
+
+            if not HAS_PYTHON_MPV:
+                return web.json_response({"status": "error", "message": "MPV player missing"}, status=503)
+
+            try:
+                self.native_player = mpv.MPV(
+                    title="Tribler Media Player Popup",
+                    force_window='yes', ytdl='no', osc=True, input_default_bindings=True,
+                    loglevel='error', log_handler=lambda lvl, pref, txt: self._logger.error(f'MPV error: {txt}'),
+                )
+                current_player = self.native_player
+
+                @self.native_player.event_callback('shutdown')
+                def on_shutdown(*args):
+                    self.loop.call_soon_threadsafe(lambda: self.register_anonymous_task("mpv_shutdown",
+                                                                                        self._async_close_callback,
+                                                                                        current_player, delay=0.5))
+            except Exception as e:
+                return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+        self.native_player.play(stream_url)
+        # Give the player some time to load
+        await sleep(0.5)
+        await self.focus_player()
+        return web.json_response({"status": "success", "message": "created MPV window"})
+
+    async def get_mpv_status(self, _request: web.Request) -> web.Response:
+        return web.json_response({"has_mpv": bool(HAS_PYTHON_MPV)})
+
+    async def shutdown_mpv(self, _request):
+        async with self.mpv_lock:
+            if await self._kill_active_players():
+                return web.json_response({"status": "success", "message": "Active MPV player stopped."})
+            return web.json_response({"status": "ignored", "message": "No active MPV players detected."}, status=400)
+
+    async def focus_player(self):
+        if self.native_player:
+            self.native_player['ontop'] = True
+            await sleep(0.2)
+            self.native_player['ontop'] = False
+
+    async def _async_close_callback(self, closed_player=None):
+        # Put terminate on a separate thread to avoid a deadlock
+        if closed_player:
+            import threading
+            try:
+                threading.Thread(target=closed_player.terminate, daemon=True).start()
+            except Exception as e:
+                self._logger.exception(e)
+
+        async with self.mpv_lock:
+            if self.native_player == closed_player:
+                self.native_player = None
+
+    async def _kill_active_players(self):
+        self.is_closing = True
+        if not self.native_player:
+            return False
+
+        try:
+            self.native_player.terminate()
+            return True
+        except Exception as e:
+            self._logger.exception(e)
+            return False
 
 
 class TorrentStreamResponse(StreamResponse):

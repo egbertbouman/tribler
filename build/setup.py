@@ -4,6 +4,7 @@ import os
 import platform
 import re
 import shutil
+import sys
 from pathlib import Path
 
 from packaging.version import Version
@@ -33,88 +34,51 @@ def read_requirements(file_name: str, directory: str = ".") -> list[str]:
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 install_requires = read_requirements("build/requirements.txt", base_dir)
-
-build_mode = os.getenv("TRIBLER_BUILD_MODE", "regular")
-if build_mode == "standalone":
-    install_requires.extend(["PySide6>=6.0.0", "python-mpv>=1.0.0", "qasync"])
-
 extras_require = {
     "dev": read_requirements("requirements-test.txt", base_dir),
 }
 
+build_opts = setup_options.setdefault("build_exe", {})
+build_opts.setdefault("includes", []).extend(["mpv"])
+build_opts.setdefault("packages", []).extend(["mpv"])
+
+# Force inclusion of the python-mpv script inside library.zip
+zip_includes = build_opts.setdefault("zip_includes", [])
+try:
+    mpv_spec = importlib.util.find_spec("mpv")
+    if mpv_spec and mpv_spec.origin:
+        zip_includes.append((mpv_spec.origin, "mpv.py"))
+except Exception:  # noqa: E722
+    pass
+
+include_files = build_opts.setdefault("include_files", [])
+if sys.platform == "win32":
+    if os.path.exists("src/mpv-1.dll"):
+        include_files.append(("src/mpv-1.dll", "mpv-1.dll"))
+        
+elif sys.platform == "darwin":
+    mac_lib = "/opt/homebrew/lib/libmpv.dylib" if os.path.exists("/opt/homebrew/lib/libmpv.dylib") else "/usr/local/lib/libmpv.dylib"
+    if os.path.exists(mac_lib):
+        include_files.append((mac_lib, "libmpv.dylib"))
+        
 # Copy src/run_tribler.py --> src/tribler/run.py to make it accessible in entry_points scripts.
 # See: entry_points={"gui_scripts": ["tribler=tribler.run:main"]} in setup() below.
-is_standalone = os.getenv("TRIBLER_BUILD_MODE") == "standalone"
-build_opts = setup_options.setdefault("build_exe", {})
-if is_standalone:
-    with open("src/tribler/run.py", "w", encoding="utf-8") as f:
-        f.write("import sys, os, asyncio, traceback\n")
-        f.write("os.environ['QTWEBENGINE_DISABLE_GPU'] = '1'\n")
-        f.write("print('[Standalone Wrapper] Starting startup sequence...', flush=True)\n")
-        f.write("sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))\n")
-        f.write("print('[Standalone Wrapper] Paths injected, importing run_tribler...', flush=True)\n")
-        f.write("import run_tribler\n")
-        f.write("print('[Standalone Wrapper] run_tribler imported successfully. Parsing arguments...', flush=True)\n")
-        f.write("parsed_args = run_tribler.parse_args()\n")
-        f.write("parsed_args['standalone'] = True\n")
-        f.write("print(f'[Standalone Wrapper] Build mode enforced. Standalone: {parsed_args.get(\"standalone\")}', flush=True)\n")
-        f.write("from PySide6.QtWidgets import QApplication\n")
-        f.write("from qasync import QEventLoop\n")
-        f.write("print('[Standalone Wrapper] Qt and QEventLoop loaded. Building event loop factory...', flush=True)\n")
-        f.write("loop_factory = lambda: QEventLoop(QApplication.instance() or QApplication(sys.argv))\n")
-        f.write("__restart = True\n")
-        f.write("while __restart:\n")
-        f.write("    print('[Standalone Wrapper] Launching asyncio event loop via asyncio.run()...', flush=True)\n")
-        f.write("    try:\n")
-        f.write("        __restart = asyncio.run(run_tribler.main(parsed_args), loop_factory=loop_factory)\n")
-        f.write("    except Exception as e:\n")
-        f.write("        print(f'[Standalone Wrapper] CRITICAL CRASH detected inside run_tribler.main: {e}', flush=True)\n")
-        f.write("        traceback.print_exc(file=sys.stdout)\n")
-        f.write("        sys.stdout.flush()\n")
-        f.write("        __restart = False\n")
-        f.write("    print(f'[Standalone Wrapper] Loop execution finished. Restart requested? {__restart}', flush=True)\n")
-    
-    build_opts.setdefault("packages", []).extend([
-        "PySide6.QtWebEngineWidgets", 
-        "PySide6.QtWebEngineCore", 
-        "mpv", 
-        "qasync",
-        "tribler.ui"
-    ])
-    
-    import PySide6
-    pyside_dir = os.path.dirname(PySide6.__file__)
-    for subfolder in ["QtWebEngineProcess", "translations", "resources"]:
-        full_path = os.path.join(pyside_dir, subfolder)
-        if os.path.exists(full_path):
-            build_opts.setdefault("include_files", []).append((full_path, subfolder))
-            
-    for lib, name in [("src/mpv-1.dll", "mpv-1.dll"), ("src/libmpv.dylib", "libmpv.dylib"), ("src/libmpv.so", "libmpv.so")]:
-        if os.path.exists(lib):
-            build_opts.setdefault("include_files", []).append((lib, name))
-            
-    if platform.system() == "Windows":
-        for exe in setup_executables: exe.base = "Win32GUI"
-else:
-    shutil.copy("src/run_tribler.py", "src/tribler/run.py")
-    build_opts.setdefault("excludes", []).extend(["PySide6.QtWebEngineWidgets", "PySide6.QtWebEngineCore", "mpv", "qasync"])
+shutil.copy("src/run_tribler.py", "src/tribler/run.py")
 
 # Turn the tag into a sequence of integer values and normalize into a period-separated string.
-raw_version = os.getenv("GITHUB_TAG", "0.0.0")
+raw_version = os.getenv("GITHUB_TAG")
 version_numbers = [str(value) for value in map(int, re.findall(r"\d+", raw_version))]
 version = Version(".".join(version_numbers))
 
 # cx_Freeze does not automatically make the package metadata
-package_name = "tribler-standalone" if build_mode == "standalone" else "tribler"
-for name in list({package_name, "tribler"}):
-    os.makedirs(f"{name}.dist-info", exist_ok=True)
-    with open(f"{name}.dist-info/METADATA", "w") as metadata_file:
-        metadata_file.write(f"""Metadata-Version: 2.3
-Name: {name.capitalize()}
+os.makedirs("tribler.dist-info", exist_ok=True)
+with open("tribler.dist-info/METADATA", "w") as metadata_file:
+    metadata_file.write(f"""Metadata-Version: 2.3
+Name: Tribler
 Version: {str(version)}""")
 
 setup(
-    name=package_name,
+    name="tribler",
     version=str(version),
     description=("Tribler" if platform.system() == "Windows"  # This is what you see in Task Manager
                  else "Privacy enhanced BitTorrent client with P2P content discovery"),

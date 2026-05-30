@@ -39,7 +39,7 @@ export default function Anonimity() {
     }
 
     return (
-        <div className="bg-background p-6 w-full">
+        <div className="p-6 w-full max-w-[700px]">
             <p>{t("HopInfo")}</p>
             <br />
             <p>

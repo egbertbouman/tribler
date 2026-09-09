@@ -35,6 +35,7 @@ MIN_TORRENT_CHECK_INTERVAL = 900  # How much time we should wait before checking
 TORRENT_CHECK_RETRY_INTERVAL = 30  # Interval when the torrent was successfully checked for the last time
 MAX_TORRENTS_CHECKED_PER_SESSION = 5  # Maximum simultaneous health checks.
 SWARM_HEALTH_CHECK_TIMEOUT = 240  # Number of seconds to spend in a swarm when doing a health check.
+MAX_FAILED_CHECKS = 3  # Number of checks a torrent is allowed to fail before it's presumed dead.
 
 TORRENT_SELECTION_POOL_SIZE = 5  # How many torrents to check (popular or random) during periodic check
 TORRENTS_CHECKED_RETURN_SIZE = 240  # Estimated torrents checked on default 4 hours idle run
@@ -236,7 +237,7 @@ class TorrentChecker(TaskManager):
         for torrent in checked_torrents:
             result[torrent.infohash] = HealthInfo(torrent.infohash, torrent.seeders, torrent.leechers,
                                                   tracker=torrent.tracker, last_check=torrent.last_check,
-                                                  self_checked=True)
+                                                  self_checked=True, failed_checks=torrent.failed_checks)
         return result
 
     @db_session
@@ -257,11 +258,13 @@ class TorrentChecker(TaskManager):
         popular_torrents = list(self.mds.TorrentState.select(
             lambda g: g.has_data == 1  # The condition had to be written this way for the partial index to work
             and g.last_check < last_fresh_time
+            and g.failed_checks < MAX_FAILED_CHECKS
         ).order_by(lambda g: (desc(g.seeders), g.last_check)).limit(TORRENT_SELECTION_POOL_SIZE))
 
         old_torrents = list(self.mds.TorrentState.select(
             lambda g: g.has_data == 1  # The condition had to be written this way for the partial index to work
             and g.last_check < last_fresh_time
+            and g.failed_checks < MAX_FAILED_CHECKS
         ).order_by(lambda g: (g.last_check, desc(g.seeders))).limit(TORRENT_SELECTION_POOL_SIZE))
 
         selected_torrents = popular_torrents + old_torrents
@@ -326,6 +329,10 @@ class TorrentChecker(TaskManager):
         with db_session:
             torrent_state = self.mds.TorrentState.get(infohash=infohash)
             if torrent_state:
+                if torrent_state.failed_checks >= MAX_FAILED_CHECKS and not scrape_now:
+                    self._logger.info("Torrent %s has failed 3 times. Skipping.", infohash_hex)
+                    return torrent_state.to_health()
+
                 last_check = torrent_state.last_check
                 time_diff = time.time() - last_check
                 if time_diff < MIN_TORRENT_CHECK_INTERVAL and not scrape_now:
@@ -352,6 +359,12 @@ class TorrentChecker(TaskManager):
                                                                     health_check=True):
                 health = HealthInfo(infohash, seeders=metainfo.get("seeders", 0), leechers=metainfo.get("leechers", 0),
                                     last_check=int(time.time()), self_checked=True)
+
+        if health.seeders == 0 and health.leechers == 0:
+            health.failed_checks += 1
+            self._logger.info("Health check failed for %s (failed_checks=%s)", infohash_hex, health.failed_checks)
+        else:
+            health.failed_checks = 0
 
         self.update_torrent_health(health)
         return health
@@ -411,6 +424,7 @@ class TorrentChecker(TaskManager):
                 self._logger.warning("Unknown torrent: %s", hexlify(health.infohash).decode())
                 return False
 
+            torrent_state.failed_checks = health.failed_checks
             prev_health = torrent_state.to_health()
             if not health.should_replace(prev_health):
                 self._logger.info("Skip health update, the health in the database is fresher or have more seeders")

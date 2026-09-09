@@ -45,6 +45,18 @@ export const popularityColumns: ColumnDef<Health>[] = [
             );
         },
     },
+    {
+        accessorKey: "failed_checks",
+        header: getHeader("Failed checks", false, true, true),
+        cell: ({ row }) => {
+            return (
+                <span className="flex items-center gap-1">
+                    {row.original.failed_checks}
+                    {row.original.failed_checks >= 3 && <span>💀</span>}
+                </span>
+            );
+        },
+    },
 ];
 
 export default function Popularity() {
@@ -79,7 +91,7 @@ export default function Popularity() {
                 <SimpleTable
                     className="[&>[data-radix-scroll-area-viewport]]:max-h-[calc(100vh-122px)]"
                     data={healthChecks?.remote || []}
-                    columns={popularityColumns}
+                    columns={popularityColumns.filter(col => (col as any).accessorKey !== "failed_checks")}
                     initialState={{sorting: [{id: "last_check", desc: true}]}}
                 />
             </TabsContent>

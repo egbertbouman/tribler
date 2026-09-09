@@ -33,6 +33,7 @@ if TYPE_CHECKING:
         trackers: set[TrackerState]
         tracker: str
         tracker_id: int | None
+        failed_checks: int
 
         def __init__(self, infohash: bytes) -> None: ...  # noqa: D107
 
@@ -50,7 +51,8 @@ if TYPE_CHECKING:
                 has_data: bool | None = None,
                 metadata: set[TorrentMetadata] | None = None,
                 trackers: set[TrackerState] | None = None,
-                tracker_id: int | None = None) -> None: ...
+                tracker_id: int | None = None,
+                failed_checks: int | None = None) -> None: ...
 
         @staticmethod
         def get_for_update(infohash: bytes) -> TorrentState: ...  # noqa: D102
@@ -92,15 +94,17 @@ def define_binding(db: Database) -> type[TorrentState]:
         metadata = orm.Set("TorrentMetadata", reverse="health")
         trackers = orm.Set("TrackerState", reverse="torrents")
         tracker_id = orm.Optional(int)
+        failed_checks = orm.Optional(int, default=0)
 
         @classmethod
         def from_health(cls: type[Self], health: HealthInfo) -> Self:
             return cls(infohash=health.infohash, seeders=health.seeders, leechers=health.leechers,
-                       last_check=health.last_check, self_checked=health.self_checked)
+                       last_check=health.last_check, self_checked=health.self_checked,
+                       failed_checks=health.failed_checks)
 
         def to_health(self) -> HealthInfo:
             return HealthInfo(self.infohash, self.seeders, self.leechers, self.last_check,
-                              self.self_checked, tracker=self.tracker)
+                              self.self_checked, tracker=self.tracker, failed_checks=self.failed_checks)
 
         @property
         def tracker(self) -> str:

@@ -4,4 +4,5 @@ export interface Health {
     leechers: number;
     last_check: number;
     tracker: string;
+    failed_checks: number;
 }

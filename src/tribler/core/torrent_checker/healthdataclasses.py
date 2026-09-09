@@ -36,6 +36,7 @@ class HealthInfo:
     self_checked: bool = False
     source: Source = Source.UNKNOWN
     tracker: str = ""
+    failed_checks: int = 0
 
     def is_valid(self) -> bool:
         """
@@ -103,7 +104,8 @@ class HealthInfo:
             "seeders": self.seeders,
             "leechers": self.leechers,
             "last_check": self.last_check,
-            "tracker": self.tracker
+            "tracker": self.tracker,
+            "failed_checks": self.failed_checks
         }
 
 

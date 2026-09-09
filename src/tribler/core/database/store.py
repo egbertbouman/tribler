@@ -193,6 +193,10 @@ class MetadataStore:
                 cursor.execute("ALTER TABLE TorrentState ADD COLUMN tracker_id INTEGER")
                 self._logger.info("Added tracker_id column to TorrentState")
 
+            if torrent_state_columns and "failed_checks" not in torrent_state_columns:
+                cursor.execute("ALTER TABLE TorrentState ADD COLUMN failed_checks INTEGER DEFAULT 0")
+                self._logger.info("Added failed_checks column to TorrentState")
+
         self.MiscData = misc.define_binding(self.db)
 
         self.TrackerState = tracker_state.define_binding(self.db)
